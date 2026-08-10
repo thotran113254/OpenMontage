@@ -1,0 +1,18 @@
+{
+  "user_style_profile": {
+    "overlay_time_ratio": 0.0,
+    "overlay_count": 0,
+    "avg_scrim": null,
+    "card_types_used": [],
+    "zoomed_cut_ratio": 0.654,
+    "transitions_used": {},
+    "notes": [
+      "Zoom is a HARD CUT punch (instant static scale change ~1.0<->1.15 at sentence ends / pauses) — NEVER an animated/gradual zoom.",
+      "Always word-level running captions (karaoke sub) — the video must never ship without them.",
+      "NO b-roll, NO cards/overlays: pure talking-head footage + captions + punch-zoom only.",
+      "NO sound effects on cuts (no whoosh/swish)."
+    ],
+    "learned_from": "projects/raw-test-1/artifacts/edit_decisions_v5.json",
+    "edited_at": "2026-07-09"
+  }
+}

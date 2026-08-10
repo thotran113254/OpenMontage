@@ -1,0 +1,22 @@
+{
+  "enabled": false,
+  "provider": "vastai",
+  "image": "node:22-bookworm",
+  "disk_gb": 12,
+  "pricing_mode": "bid",
+  "max_dph_usd": 0.15,
+  "max_total_usd_per_rental": 0.50,
+  "max_runtime_minutes": 60,
+  "max_batch_runtime_minutes": 90,
+  "offer_query": "reliability>0.95 rentable=True cpu_cores_effective>=32",
+  "apt_packages": [
+    "ffmpeg", "curl", "ca-certificates", "fonts-liberation", "libnss3",
+    "libatk-bridge2.0-0", "libatk1.0-0", "libcups2", "libdrm2", "libgbm1",
+    "libasound2", "libpangocairo-1.0-0", "libxss1", "libxtst6",
+    "libx11-xcb1", "libxcomposite1", "libxdamage1", "libxrandr2",
+    "libgtk-3-0", "xdg-utils"
+  ],
+  "ssh_key_path": "~/.ssh/openmontage_cloud_render",
+  "batch": { "min_jobs": 3, "min_total_render_minutes": 20, "max_wait_minutes": 240 },
+  "render_seconds_per_video_second": 1.9
+}

@@ -1,0 +1,114 @@
+{
+  "_comment": "SFX from https://remotion.media/AGENTS.md Sound Effects. Downloaded with agent-browser when browser access is required. Shared by MonaTimeline.tsx and lib/talking_head_edit/resources.py.",
+  "sfx": [
+    {
+      "name": "sfx_pop.mp3",
+      "use": "keyword/bullet — remotion.media mouse-click.wav (via agent-browser)",
+      "source": "https://remotion.media/mouse-click.wav"
+    },
+    {
+      "name": "sfx_pop_high.mp3",
+      "use": "pop lảnh — remotion.media switch.wav (via agent-browser)",
+      "source": "https://remotion.media/switch.wav"
+    },
+    {
+      "name": "sfx_pop_low.mp3",
+      "use": "pop trầm — remotion.media shutter-modern.wav (via agent-browser)",
+      "source": "https://remotion.media/shutter-modern.wav"
+    },
+    {
+      "name": "sfx_whoosh.mp3",
+      "use": "card vào / chuyển — remotion.media whoosh.wav (via agent-browser)",
+      "source": "https://remotion.media/whoosh.wav"
+    },
+    {
+      "name": "sfx_riser.mp3",
+      "use": "trước peak (offsetSec âm) — remotion.media whip.wav (via agent-browser)",
+      "source": "https://remotion.media/whip.wav"
+    },
+    {
+      "name": "sfx_ding.mp3",
+      "use": "chốt ý / số liệu — remotion.media ding.wav (via agent-browser)",
+      "source": "https://remotion.media/ding.wav"
+    },
+    {
+      "name": "sfx_tick.mp3",
+      "use": "nhấn nhẹ — remotion.media snapchat-notification.wav (via agent-browser)",
+      "source": "https://remotion.media/snapchat-notification.wav"
+    },
+    {
+      "name": "sfx_page_turn.mp3",
+      "use": "lật card / section — remotion.media page-turn.wav (via agent-browser)",
+      "source": "https://remotion.media/page-turn.wav"
+    }
+  ],
+  "bgm": [
+    {
+      "name": "bgm_upbeat_bounce.mp3",
+      "group": "explainer",
+      "mood": "tươi nảy"
+    },
+    {
+      "name": "bgm_clean_explainer.mp3",
+      "group": "explainer",
+      "mood": "trung tính sạch"
+    },
+    {
+      "name": "bgm_playful_pop.mp3",
+      "group": "explainer",
+      "mood": "tinh nghịch"
+    },
+    {
+      "name": "bgm_tech_pulse.mp3",
+      "group": "tech",
+      "mood": "tối giản"
+    },
+    {
+      "name": "bgm_data_groove.mp3",
+      "group": "tech",
+      "mood": "groove đều"
+    },
+    {
+      "name": "bgm_future_calm.mp3",
+      "group": "tech",
+      "mood": "thoáng chậm"
+    },
+    {
+      "name": "bgm_energy_drive.mp3",
+      "group": "high_energy",
+      "mood": "gấp gáp"
+    },
+    {
+      "name": "bgm_urgent_percussive.mp3",
+      "group": "high_energy",
+      "mood": "cảnh báo"
+    },
+    {
+      "name": "bgm_lofi_chill.mp3",
+      "group": "chill",
+      "mood": "tâm sự"
+    },
+    {
+      "name": "bgm_lofi_night.mp3",
+      "group": "chill",
+      "mood": "đêm, kể chuyện"
+    },
+    {
+      "name": "bgm_warm_story.mp3",
+      "group": "warm",
+      "mood": "ấm, truyền cảm hứng"
+    },
+    {
+      "name": "bgm_hopeful_lift.mp3",
+      "group": "warm",
+      "mood": "vươn lên, brand"
+    }
+  ],
+  "groupLabels": {
+    "explainer": "Explainer/tips/listicle",
+    "tech": "Chủ đề AI/công nghệ",
+    "high_energy": "Cảnh báo/CTA gắt/nhịp nhanh",
+    "chill": "Tâm sự/kể chuyện",
+    "warm": "Truyền cảm hứng/brand"
+  }
+}

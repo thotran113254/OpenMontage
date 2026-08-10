@@ -1,0 +1,19 @@
+{
+  "source": "path/to/source.mp4",
+  "output": "path/to/output.mp4",
+  "segments": [
+    {"start": 0.0, "end": 5.0},
+    {"start": 10.0, "end": 20.0}
+  ],
+  "transition": {"duration": 0.3},
+  "zoom": {"enabled": true, "period": 4, "intensity": 0.08, "width": 720, "height": 1280, "fps": 30},
+  "sfx": {"enabled": true, "file": "assets_library/sfx/whoosh_light.wav", "volume_db": -14.0},
+  "subtitles": {
+    "enabled": false,
+    "srt_path": "path/to/captions.srt",
+    "font_path": "assets_library/fonts/BeVietnamPro-Bold.ttf",
+    "font_size": 42,
+    "primary_color": "&H0000FFFF"
+  },
+  "music": {"enabled": false, "file": "assets_library/music/track.mp3", "volume_db": -22.0}
+}

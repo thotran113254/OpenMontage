@@ -1,0 +1,618 @@
+{
+  "cut_remove": [],
+  "grade": {
+    "brightness": 0.05,
+    "contrast": 1.1,
+    "saturation": 1.1,
+    "gamma": 1.0,
+    "warmth": 15,
+    "skin_smooth": 0.4,
+    "blemish_reduce": 0.3,
+    "sharpen": 0.5,
+    "note": "Natural warm skin and crisp explainer look"
+  },
+  "bgm": {
+    "name": "bgm_clean_explainer.mp3",
+    "volume": 0.22
+  },
+  "cold_open": {
+    "w0": 178,
+    "w1": 188,
+    "caption": "AI nó không đủ thông minh để tự xử lý đâu",
+    "highlight": "không đủ thông minh",
+    "highlightColor": "#FF4D4D",
+    "keyword": {
+      "text": "KHÔNG ĐỦ THÔNG MINH",
+      "color": "#FF2E93",
+      "xPct": 18,
+      "yPct": 12,
+      "anim": "whip",
+      "fontSize": 84
+    }
+  },
+  "endcard": {
+    "title": "Làm chủ Chatbot AI bán hàng đỉnh cao",
+    "subtitle": "Follow kênh để xem thêm mẹo hay!"
+  },
+  "events": [
+    {
+      "type": "caption",
+      "w0": 0,
+      "w1": 6,
+      "text": "Ba sai lầm khi làm chatbot AI 🤖",
+      "highlight": "sai lầm",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 7,
+      "w1": 17,
+      "text": "khiến anh em không tạo được bot bán hàng ⚠️",
+      "highlight": "không tạo được",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 18,
+      "w1": 25,
+      "text": "đảm bảo đúng ý mình được",
+      "highlight": "đúng ý mình",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "punch_in",
+      "atWord": 1,
+      "scale": 1.08,
+      "holdSec": 1.1
+    },
+    {
+      "type": "sfx",
+      "atWord": 1,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 26,
+      "offsetSec": -0.5,
+      "name": "sfx_riser.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 26,
+      "offsetSec": 0,
+      "name": "sfx_whoosh.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "card",
+      "w0": 26,
+      "w1": 56,
+      "kicker": "SAI LẦM ① — DỮ LIỆU",
+      "title": "Dồn quá nhiều",
+      "badge": "1",
+      "bullets": [
+        "Đưa hết mọi thứ vào AI",
+        "Không lọc thông tin cốt lõi",
+        "Dữ liệu dư thừa gây lỗi"
+      ],
+      "bulletWords": [
+        29,
+        41,
+        50
+      ]
+    },
+    {
+      "type": "caption",
+      "w0": 26,
+      "w1": 31,
+      "text": "Thứ nhất: dồn mọi thông tin",
+      "highlight": "Thứ nhất",
+      "highlightColor": "#FACC15"
+    },
+    {
+      "type": "caption",
+      "w0": 32,
+      "w1": 46,
+      "text": "để nó tự xử lý toàn bộ",
+      "highlight": "tự xử lý",
+      "highlightColor": "#38BDF8"
+    },
+    {
+      "type": "sfx",
+      "atWord": 29,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 41,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 47,
+      "w1": 56,
+      "text": "như vậy hoàn toàn không đúng",
+      "highlight": "không đúng",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "sfx",
+      "atWord": 50,
+      "offsetSec": 0,
+      "name": "sfx_pop_low.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 57,
+      "w1": 67,
+      "text": "mình phải lập thông tin đúng đủ",
+      "highlight": "đúng đủ",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 68,
+      "w1": 77,
+      "text": "đừng đưa quá nhiều hoặc dư thừa 🔥",
+      "highlight": "quá nhiều",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "keyword",
+      "atWord": 60,
+      "durSec": 1.5,
+      "text": "ĐÚNG ĐỦ",
+      "color": "#FF8A00",
+      "xPct": 15,
+      "yPct": 12,
+      "rotation": -4,
+      "fontSize": 80,
+      "anim": "pop"
+    },
+    {
+      "type": "punch_in",
+      "atWord": 60,
+      "scale": 1.06,
+      "holdSec": 1.1
+    },
+    {
+      "type": "shake",
+      "atWord": 72,
+      "durSec": 0.4,
+      "intensity": 8
+    },
+    {
+      "type": "sfx",
+      "atWord": 78,
+      "offsetSec": -0.5,
+      "name": "sfx_riser.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 78,
+      "offsetSec": 0,
+      "name": "sfx_whoosh.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "flash",
+      "atWord": 78,
+      "durSec": 0.15
+    },
+    {
+      "type": "card",
+      "w0": 78,
+      "w1": 125,
+      "kicker": "SAI LẦM ② — KỲ VỌNG",
+      "title": "Đòi hỏi quá mức",
+      "badge": "2",
+      "bullets": [
+        "Bắt AI thông minh như người",
+        "Quên mất quy trình",
+        "Thiếu kịch bản mẫu"
+      ],
+      "bulletWords": [
+        82,
+        96,
+        117
+      ]
+    },
+    {
+      "type": "caption",
+      "w0": 78,
+      "w1": 86,
+      "text": "Thứ hai: đòi hỏi AI quá thông minh",
+      "highlight": "Thứ hai",
+      "highlightColor": "#FACC15"
+    },
+    {
+      "type": "caption",
+      "w0": 87,
+      "w1": 95,
+      "text": "giống như con người thực thụ",
+      "highlight": "như con người",
+      "highlightColor": "#38BDF8"
+    },
+    {
+      "type": "sfx",
+      "atWord": 82,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 96,
+      "w1": 105,
+      "text": "trong khi khách hàng chỉ cần trả lời",
+      "highlight": "khách hàng",
+      "highlightColor": "#38BDF8"
+    },
+    {
+      "type": "sfx",
+      "atWord": 96,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 106,
+      "w1": 116,
+      "text": "những thông tin cơ bản về sản phẩm",
+      "highlight": "cơ bản",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 117,
+      "w1": 125,
+      "text": "đưa đúng trọng tâm kèm quy trình",
+      "highlight": "đúng trọng tâm",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "sfx",
+      "atWord": 117,
+      "offsetSec": 0,
+      "name": "sfx_pop_low.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 126,
+      "w1": 143,
+      "text": "cách tư vấn và ví dụ mẫu cụ thể",
+      "highlight": "ví dụ mẫu",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 144,
+      "w1": 158,
+      "text": "để bot tự động làm việc tốt ✅",
+      "highlight": "tự động làm",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "keyword",
+      "atWord": 133,
+      "durSec": 1.5,
+      "text": "QUY TRÌNH",
+      "color": "#00E5FF",
+      "xPct": 75,
+      "yPct": 12,
+      "rotation": 3,
+      "fontSize": 80,
+      "anim": "drop"
+    },
+    {
+      "type": "punch_in",
+      "atWord": 133,
+      "scale": 1.06,
+      "holdSec": 1.1
+    },
+    {
+      "type": "sfx",
+      "atWord": 159,
+      "offsetSec": -0.5,
+      "name": "sfx_riser.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 159,
+      "offsetSec": 0,
+      "name": "sfx_whoosh.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "flash",
+      "atWord": 159,
+      "durSec": 0.15
+    },
+    {
+      "type": "card",
+      "w0": 159,
+      "w1": 225,
+      "kicker": "SAI LẦM ③ — VẬN HÀNH",
+      "title": "Ỷ lại hoàn toàn",
+      "badge": "3",
+      "bullets": [
+        "Không chịu test & update",
+        "Phó mặc bot tự xử lý",
+        "Bot bị 'sang nhãn'"
+      ],
+      "bulletWords": [
+        162,
+        185,
+        221
+      ]
+    },
+    {
+      "type": "caption",
+      "w0": 159,
+      "w1": 164,
+      "text": "Và thứ ba: không chịu test bot",
+      "highlight": "Và thứ ba",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 165,
+      "w1": 174,
+      "text": "cái gì cũng ỷ lại hoàn toàn vào AI",
+      "highlight": "ỷ lại hoàn toàn",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "sfx",
+      "atWord": 162,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 175,
+      "w1": 188,
+      "text": "AI không đủ thông minh tự xử lý đâu ⚠️",
+      "highlight": "không đủ thông minh",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "sfx",
+      "atWord": 185,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 189,
+      "w1": 204,
+      "text": "bản chất AI là xin tự xử lý theo data",
+      "highlight": "xin tự xử lý",
+      "highlightColor": "#38BDF8"
+    },
+    {
+      "type": "caption",
+      "w0": 205,
+      "w1": 225,
+      "text": "đưa thông tin nào nó xử lý tin đó",
+      "highlight": "xử lý theo",
+      "highlightColor": "#38BDF8"
+    },
+    {
+      "type": "sfx",
+      "atWord": 221,
+      "offsetSec": 0,
+      "name": "sfx_pop_low.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 226,
+      "w1": 236,
+      "text": "Cho nên việc quan trọng để bot chuẩn",
+      "highlight": "quan trọng",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 237,
+      "w1": 247,
+      "text": "anh em phải đưa đúng quy trình này",
+      "highlight": "đúng quy trình",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "keyword",
+      "atWord": 234,
+      "durSec": 1.5,
+      "text": "ĐÚNG Ý",
+      "color": "#FF2E93",
+      "xPct": 15,
+      "yPct": 15,
+      "rotation": -2,
+      "fontSize": 80,
+      "anim": "slide"
+    },
+    {
+      "type": "punch_in",
+      "atWord": 234,
+      "scale": 1.06,
+      "holdSec": 1.1
+    },
+    {
+      "type": "caption",
+      "w0": 248,
+      "w1": 258,
+      "text": "đưa đủ thông tin, đừng đưa dư thừa",
+      "highlight": "đừng đưa dư",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 259,
+      "w1": 277,
+      "text": "tránh làm bot bị 'sang nhãn' lệch hướng 📉",
+      "highlight": "sang nhãn",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "shake",
+      "atWord": 271,
+      "durSec": 0.4,
+      "intensity": 10
+    },
+    {
+      "type": "sfx",
+      "atWord": 278,
+      "offsetSec": -0.5,
+      "name": "sfx_riser.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 278,
+      "offsetSec": 0,
+      "name": "sfx_whoosh.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "flash",
+      "atWord": 278,
+      "durSec": 0.15
+    },
+    {
+      "type": "card",
+      "w0": 278,
+      "w1": 355,
+      "kicker": "GIẢI PHÁP — TỐI ƯU",
+      "title": "Bật bot chuẩn chỉnh",
+      "badge": "4",
+      "bullets": [
+        "Kiểm tra và update liên tục",
+        "Chỉ đưa thông tin cốt lõi",
+        "Tư vấn đúng trọng tâm"
+      ],
+      "bulletWords": [
+        281,
+        313,
+        347
+      ]
+    },
+    {
+      "type": "caption",
+      "w0": 278,
+      "w1": 286,
+      "text": "Rồi thứ tư: phải test kiểm tra liên tục",
+      "highlight": "test kiểm tra",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 287,
+      "w1": 299,
+      "text": "theo dõi rồi update dần dần cho AI",
+      "highlight": "update dần dần",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "sfx",
+      "atWord": 281,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 300,
+      "w1": 314,
+      "text": "để khách hàng nhận đúng thông tin",
+      "highlight": "nhận đúng",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 315,
+      "w1": 327,
+      "text": "những gì họ cần về giá cả sản phẩm",
+      "highlight": "giá cả sản phẩm",
+      "highlightColor": "#FACC15"
+    },
+    {
+      "type": "sfx",
+      "atWord": 313,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "caption",
+      "w0": 328,
+      "w1": 342,
+      "text": "hỏi về thông tin chi tiết như thế nào",
+      "highlight": "thông tin chi tiết",
+      "highlightColor": "#38BDF8"
+    },
+    {
+      "type": "caption",
+      "w0": 343,
+      "w1": 355,
+      "text": "mình chỉ cần tư vấn đúng là xong 👍",
+      "highlight": "tư vấn đúng",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "sfx",
+      "atWord": 347,
+      "offsetSec": 0,
+      "name": "sfx_pop_low.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 355,
+      "offsetSec": 0,
+      "name": "sfx_ding.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "caption",
+      "w0": 356,
+      "w1": 374,
+      "text": "đừng bắt AI hiểu siêu phàm như con người 💰",
+      "highlight": "hiểu siêu phàm",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "keyword",
+      "atWord": 361,
+      "durSec": 1.5,
+      "text": "HIỂU ĐÚNG",
+      "color": "#8F00FF",
+      "xPct": 75,
+      "yPct": 15,
+      "rotation": 2,
+      "fontSize": 80,
+      "anim": "whip"
+    },
+    {
+      "type": "punch_in",
+      "atWord": 361,
+      "scale": 1.06,
+      "holdSec": 1.1
+    }
+  ]
+}

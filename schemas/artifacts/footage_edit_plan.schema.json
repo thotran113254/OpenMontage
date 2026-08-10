@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openmontage/artifacts/footage_edit_plan",
+  "title": "footage_edit_plan",
+  "description": "Advisory Gemini-derived edit grounding for a single raw talking-head take. Produced by FootageEditAnalyzer (tools/analysis/footage_edit_analyzer.py). NOT a canonical stage artifact — the edit-director agent still authors the canonical edit_decisions artifact, using this as grounding. Field mapping onto edit_decisions: beats[] -> cuts[] (one cut per beat, transition on cuts[].transition_in), beats[].b_roll -> overlays[] (when needed=true, windowed start/end_seconds), beats[].sound_effect -> audio.sfx[] (asset_id resolved from inventory_used.sound_effects by name), removal_spans[] -> dropped/trimmed from cuts[] by the edit-director. disfluency_spans[] is the raw, unfiltered Gemini output (for human QA); high-confidence entries are already merged into removal_spans[] with kind=\"disfluency\" so the edit-director does not need to read disfluency_spans[] directly.",
+  "type": "object",
+  "required": ["version", "source", "style_playbook", "transcript", "pacing_profile", "beats", "inventory_used", "model"],
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "source": {
+      "type": "object",
+      "required": ["path", "duration_seconds"],
+      "properties": {
+        "path": { "type": "string" },
+        "duration_seconds": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "style_playbook": {
+      "type": "string",
+      "description": "Path to the style playbook YAML used to parameterize this analysis."
+    },
+    "transcript": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["start", "end", "text"],
+        "properties": {
+          "start": { "type": "string", "description": "MM:SS timestamp" },
+          "end": { "type": "string", "description": "MM:SS timestamp" },
+          "text": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "pacing_profile": {
+      "type": "object",
+      "required": ["total_beats", "avg_beat_length_seconds", "editing_philosophy"],
+      "properties": {
+        "total_beats": { "type": "integer", "minimum": 0 },
+        "avg_beat_length_seconds": { "type": "number", "minimum": 0 },
+        "editing_philosophy": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "beats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["beat_index", "start_time", "end_time", "spoken_text", "zoom", "transition", "b_roll", "sound_effect"],
+        "properties": {
+          "beat_index": { "type": "integer", "minimum": 0 },
+          "start_time": { "type": "string", "description": "MM:SS timestamp" },
+          "end_time": { "type": "string", "description": "MM:SS timestamp" },
+          "start_seconds": { "type": "number", "minimum": 0, "description": "start_time converted to seconds; maps to cuts[].in_seconds" },
+          "end_seconds": { "type": "number", "minimum": 0, "description": "end_time converted to seconds; maps to cuts[].out_seconds" },
+          "spoken_text": { "type": "string" },
+          "zoom": {
+            "type": "object",
+            "required": ["action", "reason"],
+            "properties": {
+              "action": { "type": "string", "enum": ["zoom_in", "zoom_out", "static"] },
+              "reason": { "type": "string" },
+              "recommended_scale_range": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "transition": {
+            "type": "object",
+            "required": ["type", "reason"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Must be a member of inventory_used.transitions[]. Maps to cuts[].transition_in."
+              },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "b_roll": {
+            "type": "object",
+            "required": ["needed", "reason"],
+            "properties": {
+              "needed": { "type": "boolean" },
+              "suggested_visual": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "sound_effect": {
+            "type": "object",
+            "required": ["type", "reason"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Must be a member of inventory_used.sound_effects[] or 'none'. Maps to audio.sfx[]."
+              },
+              "trigger": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "inventory_used": {
+      "type": "object",
+      "description": "Provenance of the constrained menu injected into the prompt (from Phase 01b resource_inventory.json).",
+      "required": ["transitions", "sound_effects"],
+      "properties": {
+        "transitions": { "type": "array", "items": { "type": "string" } },
+        "sound_effects": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "disfluency_spans": {
+      "type": "array",
+      "description": "Raw speech-disfluency detections from this Gemini call (word/phrase repetition, false start, self-correction) — semantic judgment that dead-air/lexicon-based detection (speech_gap_detector.py) cannot catch. Kept unfiltered here for human QA; high-confidence entries (>= min_disfluency_confidence) are additionally merged into removal_spans[] with kind=\"disfluency\".",
+      "items": {
+        "type": "object",
+        "required": ["start_time", "end_time", "start_seconds", "end_seconds", "stumbled_fragment", "clean_continuation", "confidence"],
+        "properties": {
+          "start_time": { "type": "string", "description": "MM:SS timestamp" },
+          "end_time": { "type": "string", "description": "MM:SS timestamp" },
+          "start_seconds": { "type": "number", "minimum": 0 },
+          "end_seconds": { "type": "number", "minimum": 0 },
+          "stumbled_fragment": { "type": ["string", "null"], "description": "Verbatim quote of the stumbled/repeated/abandoned words." },
+          "clean_continuation": { "type": ["string", "null"], "description": "Verbatim quote of the corrected/continued words spoken right after." },
+          "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "removal_spans": {
+      "type": "array",
+      "description": "Filler-word/dead-air spans merged in from Phase 03 (speech_gap_detector), plus high-confidence disfluency_spans[] detected by this tool's own Gemini call.",
+      "items": {
+        "type": "object",
+        "required": ["start_seconds", "end_seconds", "kind"],
+        "properties": {
+          "start_seconds": { "type": "number", "minimum": 0 },
+          "end_seconds": { "type": "number", "minimum": 0 },
+          "kind": { "type": "string", "enum": ["filler", "dead_air", "pause_tighten", "disfluency"] },
+          "text": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "broll_candidates": {
+      "type": "array",
+      "description": "Real b-roll clips this project declared (input.broll_sources), each with a Gemini-produced one-sentence content description. Empty when the project has no real b-roll footage -- b_roll.needed beats then have nothing to match and must fall back to no-insert rather than a fabricated visual. See footage_edit_broll_matcher.match_broll_to_beats for how these get matched to beats.",
+      "items": {
+        "type": "object",
+        "required": ["path", "content_description"],
+        "properties": {
+          "path": { "type": "string" },
+          "content_description": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "model": { "type": "string" },
+    "_analysis_meta": {
+      "type": "object",
+      "description": "Reproducibility + QA metadata. Not part of the creative artifact.",
+      "properties": {
+        "thinking_level": { "type": "string" },
+        "duration_seconds": { "type": "number" },
+        "prompt_token_count": { "type": "integer" },
+        "candidates_token_count": { "type": "integer" },
+        "thoughts_token_count": { "type": "integer" },
+        "repair_attempted": { "type": "boolean" },
+        "inventory_violations": {
+          "type": "array",
+          "description": "Beats where Gemini named a transition/sfx outside the injected inventory. Clamped to a safe value ('none') in the returned beats[]; recorded here for QA visibility rather than silently discarded.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "beat_index": { "type": "integer" },
+              "field": { "type": "string", "enum": ["transition.type", "sound_effect.type"] },
+              "invented_value": { "type": "string" },
+              "clamped_to": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

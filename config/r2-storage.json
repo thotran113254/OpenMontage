@@ -1,0 +1,13 @@
+{
+  "enabled": false,
+  "bucket": "",
+  "prefix": "projects",
+  "auto_sync": false,
+  "sync_after_stage": false,
+  "exclude": ["*.log", "*.tmp", "render_public/**", "__pycache__/**", ".r2sync.json"],
+  "multipart_threshold_mb": 64,
+  "multipart_chunksize_mb": 64,
+  "max_concurrency": 4,
+  "presign_expiry_seconds": 604800,
+  "max_upload_mb_per_sync": 5000
+}

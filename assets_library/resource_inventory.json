@@ -1,0 +1,67 @@
+{
+  "sound_effects": [
+    {
+      "name": "whoosh_light",
+      "file": "sfx/whoosh_light.wav",
+      "tags": ["whoosh", "emphasis_hard_cut", "light"]
+    },
+    {
+      "name": "whoosh-swish-large",
+      "file": "sfx/whoosh-swish-large.wav",
+      "tags": ["whoosh", "b_roll_entry", "transition_accent", "large"]
+    },
+    {
+      "name": "swish-short",
+      "file": "sfx/swish-short.wav",
+      "tags": ["whoosh", "emphasis_hard_cut", "short"]
+    },
+    {
+      "name": "telop-pop-low",
+      "file": "sfx/telop-pop-low.wav",
+      "tags": ["pop", "caption_reveal", "keyword_highlight"]
+    },
+    {
+      "name": "typing-single-key",
+      "file": "sfx/typing-single-key.wav",
+      "tags": ["ui", "chat_ui", "app_mockup"]
+    },
+    {
+      "name": "page-turn",
+      "file": "sfx/page-turn.wav",
+      "tags": ["transition", "section_change"]
+    },
+    {
+      "name": "slap",
+      "file": "sfx/slap.wav",
+      "tags": ["impact", "comedic", "emphatic_punctuation"]
+    },
+    {
+      "name": "ping",
+      "file": "sfx/ping.wav",
+      "tags": ["notification", "alert", "demo_ui"]
+    }
+  ],
+  "transitions": [
+    {
+      "name": "none",
+      "runtime": "remotion",
+      "preset": "none"
+    },
+    {
+      "name": "fade",
+      "runtime": "remotion",
+      "preset": "fade"
+    },
+    {
+      "name": "slide",
+      "runtime": "remotion",
+      "preset": "slide"
+    },
+    {
+      "name": "wipe",
+      "runtime": "remotion",
+      "preset": "wipe"
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z"
+}

@@ -1,0 +1,38 @@
+Bạn là video editor đang SỬA một bản dựng đã có theo yêu cầu của khách. Chỉ trả về BẢN VÁ (patch) — tuyệt đối KHÔNG dựng lại từ đầu, KHÔNG trả lại những event không đổi.
+
+YÊU CẦU CỦA KHÁCH:
+bỏ card 2, thêm keyword ở đầu
+
+BẢN DỰNG HIỆN TẠI (mỗi dòng một event, wN = chỉ số từ dùng làm địa chỉ):
+caption w0-5: "Xin chào"
+card w6-20: badge 1 "Sai lầm 1" bullets=['bot trả lời sai']
+keyword w3: "SỐC" (#FF2E93)
+sfx w4: sfx_pop.mp3
+flash w9
+
+ĐỊNH DẠNG PATCH:
+{
+  "remove": [{"type":"card","w0":24}],
+  "modify": [{"match":{"type":"caption","w0":10},"set":{"text":"lời mới","highlight":"cụm"}}],
+  "add": [<event đầy đủ theo schema gốc, phải có type và w0/atWord>],
+  "set": {"bgm": null}
+}
+- Địa chỉ phải TRÙNG KHỚP một event có thật ở trên (đúng type + đúng chỉ số từ). Sai địa chỉ sẽ bị từ chối.
+- "set" chỉ được dùng cho: cold_open, endcard, bgm, grade, cut_remove.
+- Đổi nhạc phải ghi ĐÚNG dạng object: "set": {"bgm": {"name":"bgm_....mp3","volume":0.22}} — không ghi trần tên file. Tắt nhạc thì "bgm": null.
+- Khoá nào không cần đổi thì BỎ HẲN khỏi patch (đừng để mảng rỗng vô nghĩa).
+- Nếu yêu cầu không thể thực hiện bằng patch, trả {"errors":["lý do"]}.
+
+SFX CÓ THẬT (chỉ 7 file này): sfx_pop.mp3 (keyword/bullet bật) | sfx_pop_high.mp3 (pop lảnh — xen kẽ cho đỡ lặp) | sfx_pop_low.mp3 (pop trầm) | sfx_whoosh.mp3 (card vào / chuyển cảnh) | sfx_riser.mp3 (tiếng dâng ~0.5s, đặt TRƯỚC khoảnh khắc lớn (offsetSec=-0.5)) | sfx_ding.mp3 (chốt ý / số liệu quan trọng) | sfx_tick.mp3 (nhấn nhẹ theo nhịp)
+
+Nhạc nền hợp lệ:
+- Explainer/tips/listicle: bgm_upbeat_bounce.mp3 (tươi nảy) | bgm_clean_explainer.mp3 (trung tính sạch) | bgm_playful_pop.mp3 (tinh nghịch)
+- Chủ đề AI/công nghệ: bgm_tech_pulse.mp3 (tối giản) | bgm_data_groove.mp3 (groove đều) | bgm_future_calm.mp3 (thoáng chậm)
+- Cảnh báo/CTA gắt/nhịp nhanh: bgm_energy_drive.mp3 (gấp gáp) | bgm_urgent_percussive.mp3 (cảnh báo)
+- Tâm sự/kể chuyện: bgm_lofi_chill.mp3 (tâm sự) | bgm_lofi_night.mp3 (đêm, kể chuyện)
+- Truyền cảm hứng/brand: bgm_warm_story.mp3 (ấm, truyền cảm hứng) | bgm_hopeful_lift.mp3 (vươn lên, brand)
+
+XƯƠNG SỐNG TỪ (để bạn đặt event mới đúng chỗ):
+0:tu0 1:tu1 2:tu2 3:tu3 4:tu4 5:tu5 6:tu6 7:tu7 8:tu8 9:tu9 10:tu10 11:tu11 12:tu12 13:tu13 14:tu14 15:tu15 16:tu16 17:tu17 18:tu18 19:tu19 20:tu20 21:tu21 22:tu22 23:tu23 24:tu24 25:tu25 26:tu26 27:tu27 28:tu28 29:tu29
+
+TRẢ VỀ DUY NHẤT JSON patch.

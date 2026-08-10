@@ -1,0 +1,9 @@
+# OpenMontage - Development Dependencies
+-r requirements.txt
+pytest>=8.0
+pytest-asyncio>=0.23
+
+# Cloudflare R2 test doubles (lib/r2_storage/, tests/test_r2_*.py) -- gives a
+# real http://127.0.0.1:PORT S3 endpoint so client code (multipart, sigv4)
+# runs unmodified in tests instead of gambling on moto's endpoint patching.
+moto[server]>=5.0

@@ -1,0 +1,1015 @@
+{
+  "cut_remove": [
+    [
+      101,
+      101
+    ]
+  ],
+  "grade": {
+    "brightness": 0.02,
+    "contrast": 1.05,
+    "saturation": 1.1,
+    "gamma": 0.95,
+    "warmth": 10,
+    "skin_smooth": 0.4,
+    "blemish_reduce": 0.5,
+    "sharpen": 0.8,
+    "note": "Tone màu ấm áp, làm mịn da tự nhiên và tăng độ sắc nét cho video công nghệ."
+  },
+  "bgm": {
+    "name": "bgm_tech_pulse.mp3",
+    "volume": 0.12
+  },
+  "cold_open": {
+    "w0": 178,
+    "w1": 188,
+    "caption": "AI nó không đủ thông minh để tự xử lý đâu! ⚠️",
+    "highlight": "không đủ thông minh",
+    "highlightColor": "#FF4D4D",
+    "keyword": {
+      "text": "AI KHÔNG THÔNG MINH",
+      "color": "#FF2E93",
+      "xPct": 15,
+      "yPct": 15,
+      "anim": "whip",
+      "fontSize": 80
+    }
+  },
+  "endcard": {
+    "title": "Xây Chatbot AI Bán Hàng Chuẩn Xác",
+    "subtitle": "Follow để nhận thêm mẹo AI!"
+  },
+  "events": [
+    {
+      "type": "caption",
+      "w0": 0,
+      "w1": 3,
+      "text": "Ba sai lầm khiến cho"
+    },
+    {
+      "type": "caption",
+      "w0": 4,
+      "w1": 7,
+      "text": "anh em mình không thể"
+    },
+    {
+      "type": "caption",
+      "w0": 8,
+      "w1": 12,
+      "text": "nào tạo được chatbot"
+    },
+    {
+      "type": "caption",
+      "w0": 13,
+      "w1": 17,
+      "text": "AI bán hàng 🤖",
+      "highlight": "AI bán hàng",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 18,
+      "w1": 23,
+      "text": "chạy đúng ý mình được."
+    },
+    {
+      "type": "caption",
+      "w0": 24,
+      "w1": 27,
+      "text": "Thứ nhất, đó là"
+    },
+    {
+      "type": "caption",
+      "w0": 28,
+      "w1": 31,
+      "text": "có thông tin gì"
+    },
+    {
+      "type": "caption",
+      "w0": 32,
+      "w1": 36,
+      "text": "thì anh em cũng đều"
+    },
+    {
+      "type": "caption",
+      "w0": 37,
+      "w1": 41,
+      "text": "ném hết vào cho AI 🗑️",
+      "highlight": "ném hết vào",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 42,
+      "w1": 46,
+      "text": "để nó tự xử lý."
+    },
+    {
+      "type": "caption",
+      "w0": 47,
+      "w1": 51,
+      "text": "Như vậy thì không đúng",
+      "highlight": "không đúng",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 52,
+      "w1": 56,
+      "text": "theo ngôn ngữ của AI."
+    },
+    {
+      "type": "caption",
+      "w0": 57,
+      "w1": 60,
+      "text": "Mình cần phải lọc"
+    },
+    {
+      "type": "caption",
+      "w0": 61,
+      "w1": 64,
+      "text": "thông tin đúng đủ",
+      "highlight": "đúng đủ",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 65,
+      "w1": 67,
+      "text": "để đưa nó,"
+    },
+    {
+      "type": "caption",
+      "w0": 68,
+      "w1": 72,
+      "text": "đừng có đưa quá nhiều",
+      "highlight": "quá nhiều",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 73,
+      "w1": 75,
+      "text": "hoặc là dư."
+    },
+    {
+      "type": "caption",
+      "w0": 76,
+      "w1": 78,
+      "text": "Thứ hai là"
+    },
+    {
+      "type": "caption",
+      "w0": 79,
+      "w1": 83,
+      "text": "anh em đòi AI nó"
+    },
+    {
+      "type": "caption",
+      "w0": 84,
+      "w1": 86,
+      "text": "phải thông minh",
+      "highlight": "thông minh",
+      "highlightColor": "#FACC15"
+    },
+    {
+      "type": "caption",
+      "w0": 87,
+      "w1": 91,
+      "text": "giống như là con người."
+    },
+    {
+      "type": "caption",
+      "w0": 92,
+      "w1": 95,
+      "text": "Thì cái việc mà"
+    },
+    {
+      "type": "caption",
+      "w0": 96,
+      "w1": 100,
+      "text": "khách hàng cần trả lời"
+    },
+    {
+      "type": "caption",
+      "w0": 102,
+      "w1": 105,
+      "text": "thì những cái câu,"
+    },
+    {
+      "type": "caption",
+      "w0": 106,
+      "w1": 109,
+      "text": "những cái thông tin"
+    },
+    {
+      "type": "caption",
+      "w0": 110,
+      "w1": 114,
+      "text": "cơ bản về sản phẩm,"
+    },
+    {
+      "type": "caption",
+      "w0": 115,
+      "w1": 116,
+      "text": "về giá 💰",
+      "highlight": "về giá",
+      "highlightColor": "#FACC15"
+    },
+    {
+      "type": "caption",
+      "w0": 117,
+      "w1": 120,
+      "text": "mình chỉ đưa đúng"
+    },
+    {
+      "type": "caption",
+      "w0": 121,
+      "w1": 123,
+      "text": "những cái đó"
+    },
+    {
+      "type": "caption",
+      "w0": 124,
+      "w1": 127,
+      "text": "kèm theo quy trình",
+      "highlight": "quy trình",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 128,
+      "w1": 132,
+      "text": "làm việc như thế nào,"
+    },
+    {
+      "type": "caption",
+      "w0": 133,
+      "w1": 137,
+      "text": "tư vấn như thế nào"
+    },
+    {
+      "type": "caption",
+      "w0": 138,
+      "w1": 141,
+      "text": "và những câu mẫu"
+    },
+    {
+      "type": "caption",
+      "w0": 142,
+      "w1": 144,
+      "text": "ví dụ về"
+    },
+    {
+      "type": "caption",
+      "w0": 145,
+      "w1": 148,
+      "text": "phong cách trả lời,"
+    },
+    {
+      "type": "caption",
+      "w0": 149,
+      "w1": 152,
+      "text": "nó sẽ tự động",
+      "highlight": "tự động",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 153,
+      "w1": 156,
+      "text": "làm việc được. Và"
+    },
+    {
+      "type": "caption",
+      "w0": 157,
+      "w1": 159,
+      "text": "thứ ba là"
+    },
+    {
+      "type": "caption",
+      "w0": 160,
+      "w1": 163,
+      "text": "anh em không chịu test ❌",
+      "highlight": "không chịu test",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 164,
+      "w1": 167,
+      "text": "cái gì cũng quăng cho AI"
+    },
+    {
+      "type": "caption",
+      "w0": 168,
+      "w1": 170,
+      "text": "rồi nó"
+    },
+    {
+      "type": "caption",
+      "w0": 171,
+      "w1": 174,
+      "text": "tự xử lý."
+    },
+    {
+      "type": "caption",
+      "w0": 175,
+      "w1": 177,
+      "text": "Như vậy thì"
+    },
+    {
+      "type": "caption",
+      "w0": 178,
+      "w1": 180,
+      "text": "AI nó không"
+    },
+    {
+      "type": "caption",
+      "w0": 181,
+      "w1": 183,
+      "text": "đủ thông minh",
+      "highlight": "đủ thông minh",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 184,
+      "w1": 188,
+      "text": "để tự xử lý đâu."
+    },
+    {
+      "type": "caption",
+      "w0": 189,
+      "w1": 191,
+      "text": "Bản chất AI"
+    },
+    {
+      "type": "caption",
+      "w0": 192,
+      "w1": 195,
+      "text": "nó là sinh từ,",
+      "highlight": "sinh từ",
+      "highlightColor": "#FACC15"
+    },
+    {
+      "type": "caption",
+      "w0": 196,
+      "w1": 198,
+      "text": "anh em đưa"
+    },
+    {
+      "type": "caption",
+      "w0": 199,
+      "w1": 201,
+      "text": "cái thông tin"
+    },
+    {
+      "type": "caption",
+      "w0": 202,
+      "w1": 204,
+      "text": "nào nhìn nhé,"
+    },
+    {
+      "type": "caption",
+      "w0": 205,
+      "w1": 209,
+      "text": "nó sẽ tự xử lý"
+    },
+    {
+      "type": "caption",
+      "w0": 210,
+      "w1": 212,
+      "text": "theo những cái"
+    },
+    {
+      "type": "caption",
+      "w0": 213,
+      "w1": 215,
+      "text": "thông tin đó."
+    },
+    {
+      "type": "caption",
+      "w0": 216,
+      "w1": 218,
+      "text": "Cho nên là"
+    },
+    {
+      "type": "caption",
+      "w0": 219,
+      "w1": 222,
+      "text": "cái việc quan trọng"
+    },
+    {
+      "type": "caption",
+      "w0": 223,
+      "w1": 226,
+      "text": "để chatbot AI"
+    },
+    {
+      "type": "caption",
+      "w0": 227,
+      "w1": 232,
+      "text": "nó có thể hoạt động được"
+    },
+    {
+      "type": "caption",
+      "w0": 233,
+      "w1": 236,
+      "text": "theo đúng ý mình."
+    },
+    {
+      "type": "caption",
+      "w0": 237,
+      "w1": 240,
+      "text": "Thì anh em mình"
+    },
+    {
+      "type": "caption",
+      "w0": 241,
+      "w1": 243,
+      "text": "không phải đưa"
+    },
+    {
+      "type": "caption",
+      "w0": 244,
+      "w1": 247,
+      "text": "đúng quy trình này,",
+      "highlight": "đúng quy trình",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 248,
+      "w1": 251,
+      "text": "đưa đủ những cái"
+    },
+    {
+      "type": "caption",
+      "w0": 252,
+      "w1": 254,
+      "text": "thông tin thôi."
+    },
+    {
+      "type": "caption",
+      "w0": 255,
+      "w1": 258,
+      "text": "Đừng có đưa dư 🛑",
+      "highlight": "Đừng đưa dư",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 259,
+      "w1": 261,
+      "text": "đừng có đưa"
+    },
+    {
+      "type": "caption",
+      "w0": 262,
+      "w1": 265,
+      "text": "những cái thông tin"
+    },
+    {
+      "type": "caption",
+      "w0": 266,
+      "w1": 270,
+      "text": "mà làm cho AI nó"
+    },
+    {
+      "type": "caption",
+      "w0": 271,
+      "w1": 274,
+      "text": "bị xao nhãng đi.",
+      "highlight": "xao nhãng",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 275,
+      "w1": 278,
+      "text": "Rồi thứ ba là"
+    },
+    {
+      "type": "caption",
+      "w0": 279,
+      "w1": 281,
+      "text": "mình phải test 🔄",
+      "highlight": "phải test",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 282,
+      "w1": 286,
+      "text": "và kiểm tra liên tục,"
+    },
+    {
+      "type": "caption",
+      "w0": 287,
+      "w1": 289,
+      "text": "mình theo dõi"
+    },
+    {
+      "type": "caption",
+      "w0": 290,
+      "w1": 292,
+      "text": "rồi mình cập nhật."
+    },
+    {
+      "type": "caption",
+      "w0": 293,
+      "w1": 295,
+      "text": "Thì dần dần"
+    },
+    {
+      "type": "caption",
+      "w0": 296,
+      "w1": 299,
+      "text": "mình sẽ có AI"
+    },
+    {
+      "type": "caption",
+      "w0": 300,
+      "w1": 301,
+      "text": "thông minh",
+      "highlight": "thông minh",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 302,
+      "w1": 304,
+      "text": "và khách hàng"
+    },
+    {
+      "type": "caption",
+      "w0": 305,
+      "w1": 309,
+      "text": "họ chỉ cần trả lời"
+    },
+    {
+      "type": "caption",
+      "w0": 310,
+      "w1": 314,
+      "text": "đúng những cái thông tin."
+    },
+    {
+      "type": "caption",
+      "w0": 315,
+      "w1": 316,
+      "text": "Những cái"
+    },
+    {
+      "type": "caption",
+      "w0": 317,
+      "w1": 320,
+      "text": "mà họ muốn thôi,"
+    },
+    {
+      "type": "caption",
+      "w0": 321,
+      "w1": 324,
+      "text": "như là họ muốn"
+    },
+    {
+      "type": "caption",
+      "w0": 325,
+      "w1": 327,
+      "text": "hỏi về giá 💵",
+      "highlight": "hỏi về giá",
+      "highlightColor": "#FACC15"
+    },
+    {
+      "type": "caption",
+      "w0": 328,
+      "w1": 331,
+      "text": "họ muốn hỏi về"
+    },
+    {
+      "type": "caption",
+      "w0": 332,
+      "w1": 336,
+      "text": "cái thông tin sản phẩm."
+    },
+    {
+      "type": "caption",
+      "w0": 337,
+      "w1": 340,
+      "text": "Chỉ biết họ"
+    },
+    {
+      "type": "caption",
+      "w0": 341,
+      "w1": 343,
+      "text": "như thế nào thì"
+    },
+    {
+      "type": "caption",
+      "w0": 344,
+      "w1": 348,
+      "text": "mình chỉ cần tư vấn"
+    },
+    {
+      "type": "caption",
+      "w0": 349,
+      "w1": 352,
+      "text": "đúng những cái đó",
+      "highlight": "đúng những cái đó",
+      "highlightColor": "#22C55E"
+    },
+    {
+      "type": "caption",
+      "w0": 353,
+      "w1": 356,
+      "text": "là đã được rồi."
+    },
+    {
+      "type": "caption",
+      "w0": 357,
+      "w1": 358,
+      "text": "Nên là"
+    },
+    {
+      "type": "caption",
+      "w0": 359,
+      "w1": 361,
+      "text": "đừng cho AI"
+    },
+    {
+      "type": "caption",
+      "w0": 362,
+      "w1": 365,
+      "text": "nó quá thông minh",
+      "highlight": "quá thông minh",
+      "highlightColor": "#FF4D4D"
+    },
+    {
+      "type": "caption",
+      "w0": 366,
+      "w1": 370,
+      "text": "để nó có thể hiểu"
+    },
+    {
+      "type": "caption",
+      "w0": 371,
+      "w1": 374,
+      "text": "giống như con người."
+    },
+    {
+      "type": "card",
+      "w0": 24,
+      "w1": 75,
+      "kicker": "SAI LẦM ① — NHỒI THÔNG TIN",
+      "title": "Quá tải dữ liệu",
+      "badge": "1",
+      "bullets": [
+        "Quen hết vào AI",
+        "Không đúng ngôn ngữ AI",
+        "Thừa thãi thông tin"
+      ],
+      "bulletWords": [
+        38,
+        56,
+        72
+      ]
+    },
+    {
+      "type": "card",
+      "w0": 76,
+      "w1": 156,
+      "kicker": "SAI LẦM ② — ẢO TƯỞNG SỨC MẠNH",
+      "title": "Đòi AI như người",
+      "badge": "2",
+      "bullets": [
+        "Bắt AI tự hiểu",
+        "Thiếu quy trình chuẩn",
+        "Thiếu câu trả lời mẫu"
+      ],
+      "bulletWords": [
+        86,
+        127,
+        141
+      ]
+    },
+    {
+      "type": "card",
+      "w0": 157,
+      "w1": 215,
+      "kicker": "SAI LẦM ③ — PHÓ MẶC HOÀN TOÀN",
+      "title": "Lười kiểm tra",
+      "badge": "3",
+      "bullets": [
+        "Không chịu test",
+        "Nghĩ AI tự xử lý",
+        "Quên AI chỉ là sinh từ"
+      ],
+      "bulletWords": [
+        164,
+        186,
+        195
+      ]
+    },
+    {
+      "type": "card",
+      "w0": 216,
+      "w1": 356,
+      "kicker": "GIẢI PHÁP — CHATBOT CHUẨN",
+      "title": "Xây dựng đúng cách",
+      "badge": "4",
+      "bullets": [
+        "Đưa đúng quy trình",
+        "Lọc bỏ thông tin dư",
+        "Test và update liên tục"
+      ],
+      "bulletWords": [
+        246,
+        258,
+        281
+      ]
+    },
+    {
+      "type": "keyword",
+      "atWord": 3,
+      "durSec": 1.5,
+      "text": "SAI LẦM",
+      "color": "#FF2E93",
+      "xPct": 15,
+      "yPct": 15,
+      "rotation": -4,
+      "fontSize": 80,
+      "anim": "pop"
+    },
+    {
+      "type": "keyword",
+      "atWord": 15,
+      "durSec": 1.5,
+      "text": "CHATBOT AI",
+      "color": "#00E5FF",
+      "xPct": 75,
+      "yPct": 15,
+      "rotation": 4,
+      "fontSize": 80,
+      "anim": "drop"
+    },
+    {
+      "type": "keyword",
+      "atWord": 364,
+      "durSec": 1.5,
+      "text": "QUÁ THÔNG MINH",
+      "color": "#FF8A00",
+      "xPct": 15,
+      "yPct": 70,
+      "rotation": -3,
+      "fontSize": 80,
+      "anim": "whip"
+    },
+    {
+      "type": "keyword",
+      "atWord": 373,
+      "durSec": 1.5,
+      "text": "CON NGƯỜI",
+      "color": "#8F00FF",
+      "xPct": 75,
+      "yPct": 70,
+      "rotation": 3,
+      "fontSize": 80,
+      "anim": "slide"
+    },
+    {
+      "type": "punch_in",
+      "atWord": 0,
+      "scale": 1.08,
+      "holdSec": 1.2
+    },
+    {
+      "type": "punch_in",
+      "atWord": 15,
+      "scale": 1.05,
+      "holdSec": 1.1
+    },
+    {
+      "type": "punch_in",
+      "atWord": 357,
+      "scale": 1.06,
+      "holdSec": 1.1
+    },
+    {
+      "type": "punch_in",
+      "atWord": 368,
+      "scale": 1.08,
+      "holdSec": 1.2
+    },
+    {
+      "type": "sfx",
+      "atWord": 3,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 15,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 22,
+      "offsetSec": -0.5,
+      "name": "sfx_riser.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 24,
+      "offsetSec": 0,
+      "name": "sfx_whoosh.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 38,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 56,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 63,
+      "offsetSec": 0,
+      "name": "sfx_ding.mp3",
+      "volume": 0.6
+    },
+    {
+      "type": "sfx",
+      "atWord": 72,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 74,
+      "offsetSec": -0.5,
+      "name": "sfx_riser.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 76,
+      "offsetSec": 0,
+      "name": "sfx_whoosh.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 86,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 116,
+      "offsetSec": 0,
+      "name": "sfx_ding.mp3",
+      "volume": 0.6
+    },
+    {
+      "type": "sfx",
+      "atWord": 127,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 141,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 155,
+      "offsetSec": -0.5,
+      "name": "sfx_riser.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 157,
+      "offsetSec": 0,
+      "name": "sfx_whoosh.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 164,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 186,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 195,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 214,
+      "offsetSec": -0.5,
+      "name": "sfx_riser.mp3",
+      "volume": 0.4
+    },
+    {
+      "type": "sfx",
+      "atWord": 216,
+      "offsetSec": 0,
+      "name": "sfx_whoosh.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 246,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 258,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 281,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 327,
+      "offsetSec": 0,
+      "name": "sfx_ding.mp3",
+      "volume": 0.6
+    },
+    {
+      "type": "sfx",
+      "atWord": 364,
+      "offsetSec": 0,
+      "name": "sfx_pop.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "sfx",
+      "atWord": 373,
+      "offsetSec": 0,
+      "name": "sfx_pop_high.mp3",
+      "volume": 0.5
+    },
+    {
+      "type": "shake",
+      "atWord": 162,
+      "durSec": 0.4,
+      "intensity": 10
+    },
+    {
+      "type": "shake",
+      "atWord": 271,
+      "durSec": 0.4,
+      "intensity": 10
+    },
+    {
+      "type": "flash",
+      "atWord": 24,
+      "durSec": 0.15
+    },
+    {
+      "type": "flash",
+      "atWord": 216,
+      "durSec": 0.15
+    }
+  ]
+}

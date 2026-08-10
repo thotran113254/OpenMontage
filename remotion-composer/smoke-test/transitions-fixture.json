@@ -1,0 +1,11 @@
+{
+  "theme": "flat-motion-graphics",
+  "cuts": [
+    { "id": "c1", "source": "", "type": "text_card", "text": "Cut A (no transition)", "in_seconds": 0, "out_seconds": 2 },
+    { "id": "c2", "source": "", "type": "text_card", "text": "Cut B (fade)", "in_seconds": 2, "out_seconds": 4, "transition_in": "fade" },
+    { "id": "c3", "source": "", "type": "text_card", "text": "Cut C (slide)", "in_seconds": 4, "out_seconds": 6, "transition_in": "slide" },
+    { "id": "c4", "source": "", "type": "text_card", "text": "Cut D (wipe)", "in_seconds": 6, "out_seconds": 8, "transition_in": "wipe" },
+    { "id": "c5", "source": "", "type": "text_card", "text": "Cut E (explicit none)", "in_seconds": 8, "out_seconds": 10, "transition_in": "none" },
+    { "id": "c6", "source": "", "type": "text_card", "text": "Cut F (gap, no transition field at all)", "in_seconds": 11, "out_seconds": 13 }
+  ]
+}

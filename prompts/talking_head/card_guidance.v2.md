@@ -1,0 +1,1 @@
+Số card do BẠN quyết — không có số mặc định, không tính theo độ dài. Đếm số Ý CHÍNH ĐỘC LẬP thật sự có trong {{n}} từ lời nói này (mỗi ý tự đứng được một mình, đủ để nói riêng biệt). Ít ý → ít card, kể cả 0-1; đừng chia nhỏ một ý ra nhiều card cho đủ số. Nhiều ý → nhiều card, đừng gộp hai ý khác nhau vào một card cho gọn.

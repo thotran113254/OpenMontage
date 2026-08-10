@@ -1,0 +1,9 @@
+{
+  "assembly": {
+    "mode": "auto",
+    "speaker_aware": "auto",
+    "broll_overlay": true,
+    "cross_source_cut": false,
+    "take_detect": "suggest"
+  }
+}

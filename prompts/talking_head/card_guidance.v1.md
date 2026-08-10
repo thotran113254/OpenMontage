@@ -1,0 +1,1 @@
+Số card do bạn quyết theo cấu trúc nội dung — thường 3-5 card, mỗi card trải gần trọn đoạn nói ý đó.

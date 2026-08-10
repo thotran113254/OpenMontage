@@ -1,0 +1,91 @@
+# UGC Talking-Head Sales style playbook.
+# Learned from a real reference video (Vietnamese UGC sales-vlog, talking-head
+# anchor + 3 concrete product/demo cutaways). Consumed by:
+#   - Phase 02 footage_edit_analyzer (Gemini prompt parameterization)
+#   - Phase 04 script/scene/asset/edit directors (consistency)
+# Vocabulary constraints (verified, do not widen without re-checking P01b):
+#   - transitions: exactly the 4 presets wired in
+#     remotion-composer/src/transitions/preset-map.ts (none, fade, slide, wipe)
+#   - sfx names: exactly the 8 real files in assets_library/sfx/
+
+identity:
+  name: "UGC Talking-Head Sales"
+  category: custom  # no "ugc" enum value exists; custom is the schema escape hatch
+  mood: "authentic, energetic, direct"
+  pace: fast
+  best_for: "Talking-head UGC sales/demo vlogs; single continuous take with product or app-UI cutaways at concrete demo moments"
+
+visual_language:
+  color_palette:
+    primary: ["#FFFFFF", "#111111"]
+    accent: ["#FF3B30", "#FFD60A"]  # bold keyword-highlight caption colors (red/yellow pop)
+    background: "#000000"
+    text: "#FFFFFF"
+    muted: "#8E8E93"
+  composition: "vertical 9:16 full-bleed talking-head anchor; b-roll/demo inserts appear as centered rounded phone-frame overlays"
+  texture: "natural handheld/selfie footage as the anchor layer; overlay chat-UI or product screenshots use clean flat rounded-rect chrome, no added ornamentation"
+
+typography:
+  headings:
+    font: "Be Vietnam Pro"
+    weight: 800
+    tracking: "-0.01em"
+  body:
+    font: "Be Vietnam Pro"
+    weight: 600
+    line_height: 1.3
+  scale_system: "major_second"
+  weight_matrix:
+    title: 800
+    heading: 700
+    body: 600
+    caption: 700  # bold animated keyword-highlight captions
+
+motion:
+  # Only the 4 presets actually wired into remotion-composer/src/transitions/preset-map.ts.
+  transitions: [none, fade, slide, wipe]
+  animation_style: "predominantly hard cuts (none); emphasis push-in/out spring zoom tied to keyword or new-subject reveals, never mechanical per-beat motion"
+  pacing_rules:
+    min_scene_hold_seconds: 3
+    max_scene_hold_seconds: 8
+    transition_duration_seconds: 0.3
+  entrance: "hard cut by default; spring zoom-in only on an emphasis word or new-subject reveal"
+  exit: "hard cut; slide or wipe reserved for entering/leaving a b-roll demo insert"
+
+audio:
+  voice_style: "authentic, energetic, direct-to-camera Vietnamese sales/demo narration, conversational pace"
+  music_mood: "low unobtrusive background bed, never competes with voice"
+  music_volume: 0.1
+  sfx_style: >
+    telop-pop-low on keyword-highlight caption reveals; whoosh_light or
+    swish-short on emphasis hard cuts; whoosh-swish-large, or the slide/wipe
+    transition itself, when entering a b-roll/demo insert; typing-single-key
+    under chat-UI/app-mockup inserts; page-turn on section changes; slap for
+    comedic or emphatic punctuation; ping for a notification/alert moment
+    inside a demo UI. Vary the choice across beats — never repeat the same
+    effect on two consecutive beats.
+  ducking_threshold_db: -6
+
+asset_generation:
+  image_prompt_prefix: "clean modern mobile chat UI or product screenshot mockup, rounded phone frame, minimal chrome, "
+  image_negative_prompt: "cluttered UI, low-res, blurry, watermarks, unrealistic or outdated UI chrome"
+  consistency_anchors:
+    - "Rounded phone-frame border matching the anchor footage's 9:16 aspect"
+    - "Brand accent color (#FF3B30 or #FFD60A) as a small highlight touch, never a full-screen tint"
+    - "Flat, minimal UI chrome — no photorealistic device bezels"
+
+overlays:
+  key_term:
+    bg: "#00000000"
+    text: "#FFD60A"
+    highlight: "#FF3B30"
+    radius: 4
+
+quality_rules:
+  - "Insert a UI/demo overlay when the script names a concrete example, product, or screenshot moment."
+  - "Zoom only on emphasis words or new-subject reveals, never every beat."
+  - "Beat boundaries align to sentence/clause ends; target 3-8s; never cut mid-word."
+  - "Transitions must not repeat the same type more than ~2 beats running (avoid flash-lite monotony)."
+  - "Captions: bold animated keyword highlight, one highlighted word per beat."
+  - "Default transition is none (hard cut); fade/slide/wipe are the exception, reserved for b-roll entry/exit."
+  - "Sound effect names must come from the real assets_library/sfx/ inventory — never invent a new effect name."

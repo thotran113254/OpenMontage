@@ -1,0 +1,4654 @@
+{
+  "segments": [
+    {
+      "id": 1,
+      "start": 0.37,
+      "end": 5.59,
+      "text": "Ba sai làm khiến cho anh em mình không thể nào tạo được chất bót AI bán hàng từ đảm đúng ý mình được",
+      "words": [
+        {
+          "word": " Ba",
+          "start": 0.37,
+          "end": 0.91,
+          "probability": 0.145
+        },
+        {
+          "word": " sai",
+          "start": 0.91,
+          "end": 1.09,
+          "probability": 0.272
+        },
+        {
+          "word": " làm",
+          "start": 1.09,
+          "end": 1.27,
+          "probability": 0.872
+        },
+        {
+          "word": " khiến",
+          "start": 1.27,
+          "end": 1.51,
+          "probability": 0.979
+        },
+        {
+          "word": " cho",
+          "start": 1.51,
+          "end": 1.69,
+          "probability": 0.952
+        },
+        {
+          "word": " anh",
+          "start": 1.69,
+          "end": 1.93,
+          "probability": 0.977
+        },
+        {
+          "word": " em",
+          "start": 1.93,
+          "end": 2.03,
+          "probability": 0.991
+        },
+        {
+          "word": " mình",
+          "start": 2.03,
+          "end": 2.23,
+          "probability": 0.654
+        },
+        {
+          "word": " không",
+          "start": 2.23,
+          "end": 2.45,
+          "probability": 0.987
+        },
+        {
+          "word": " thể",
+          "start": 2.45,
+          "end": 2.61,
+          "probability": 0.958
+        },
+        {
+          "word": " nào",
+          "start": 2.61,
+          "end": 2.81,
+          "probability": 0.828
+        },
+        {
+          "word": " tạo",
+          "start": 2.81,
+          "end": 3.03,
+          "probability": 0.968
+        },
+        {
+          "word": " được",
+          "start": 3.03,
+          "end": 3.17,
+          "probability": 0.992
+        },
+        {
+          "word": " chất",
+          "start": 3.17,
+          "end": 3.33,
+          "probability": 0.679
+        },
+        {
+          "word": " bót",
+          "start": 3.33,
+          "end": 3.47,
+          "probability": 0.593
+        },
+        {
+          "word": " AI",
+          "start": 3.47,
+          "end": 3.73,
+          "probability": 0.752
+        },
+        {
+          "word": " bán",
+          "start": 3.73,
+          "end": 3.97,
+          "probability": 0.916
+        },
+        {
+          "word": " hàng",
+          "start": 3.97,
+          "end": 4.21,
+          "probability": 0.992
+        },
+        {
+          "word": " từ",
+          "start": 4.21,
+          "end": 4.77,
+          "probability": 0.724
+        },
+        {
+          "word": " đảm",
+          "start": 4.77,
+          "end": 4.99,
+          "probability": 0.83
+        },
+        {
+          "word": " đúng",
+          "start": 4.99,
+          "end": 5.15,
+          "probability": 0.861
+        },
+        {
+          "word": " ý",
+          "start": 5.15,
+          "end": 5.27,
+          "probability": 0.966
+        },
+        {
+          "word": " mình",
+          "start": 5.27,
+          "end": 5.45,
+          "probability": 0.979
+        },
+        {
+          "word": " được",
+          "start": 5.45,
+          "end": 5.59,
+          "probability": 0.957
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "start": 5.59,
+      "end": 10.73,
+      "text": "Thứ nhất, đó là có thông tin gì, thì anh em cũng đều quen hết vào cho AI để nó tự xử lý",
+      "words": [
+        {
+          "word": " Thứ",
+          "start": 5.59,
+          "end": 6.27,
+          "probability": 0.792
+        },
+        {
+          "word": " nhất,",
+          "start": 6.27,
+          "end": 6.45,
+          "probability": 0.955
+        },
+        {
+          "word": " đó",
+          "start": 6.79,
+          "end": 6.85,
+          "probability": 0.885
+        },
+        {
+          "word": " là",
+          "start": 6.85,
+          "end": 7.01,
+          "probability": 0.991
+        },
+        {
+          "word": " có",
+          "start": 7.01,
+          "end": 7.23,
+          "probability": 0.988
+        },
+        {
+          "word": " thông",
+          "start": 7.23,
+          "end": 7.41,
+          "probability": 0.989
+        },
+        {
+          "word": " tin",
+          "start": 7.41,
+          "end": 7.53,
+          "probability": 0.99
+        },
+        {
+          "word": " gì,",
+          "start": 7.53,
+          "end": 7.77,
+          "probability": 0.994
+        },
+        {
+          "word": " thì",
+          "start": 7.95,
+          "end": 8.25,
+          "probability": 0.914
+        },
+        {
+          "word": " anh",
+          "start": 8.25,
+          "end": 8.39,
+          "probability": 0.986
+        },
+        {
+          "word": " em",
+          "start": 8.39,
+          "end": 8.49,
+          "probability": 0.998
+        },
+        {
+          "word": " cũng",
+          "start": 8.49,
+          "end": 8.67,
+          "probability": 0.965
+        },
+        {
+          "word": " đều",
+          "start": 8.67,
+          "end": 8.85,
+          "probability": 0.788
+        },
+        {
+          "word": " quen",
+          "start": 8.85,
+          "end": 9.03,
+          "probability": 0.835
+        },
+        {
+          "word": " hết",
+          "start": 9.03,
+          "end": 9.17,
+          "probability": 0.988
+        },
+        {
+          "word": " vào",
+          "start": 9.17,
+          "end": 9.35,
+          "probability": 0.979
+        },
+        {
+          "word": " cho",
+          "start": 9.35,
+          "end": 9.51,
+          "probability": 0.983
+        },
+        {
+          "word": " AI",
+          "start": 9.51,
+          "end": 9.79,
+          "probability": 0.965
+        },
+        {
+          "word": " để",
+          "start": 9.79,
+          "end": 10.03,
+          "probability": 0.953
+        },
+        {
+          "word": " nó",
+          "start": 10.03,
+          "end": 10.15,
+          "probability": 0.77
+        },
+        {
+          "word": " tự",
+          "start": 10.15,
+          "end": 10.33,
+          "probability": 0.948
+        },
+        {
+          "word": " xử",
+          "start": 10.33,
+          "end": 10.51,
+          "probability": 0.619
+        },
+        {
+          "word": " lý",
+          "start": 10.51,
+          "end": 10.73,
+          "probability": 0.981
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "start": 10.73,
+      "end": 17.75,
+      "text": "Như vậy thì không đúng theo ngôn ngữ của AI, mình cần phải lập thông tin đúng đủ để đưa nó đừng có đưa quá nhiều hoặc là dư",
+      "words": [
+        {
+          "word": " Như",
+          "start": 10.73,
+          "end": 11.31,
+          "probability": 0.901
+        },
+        {
+          "word": " vậy",
+          "start": 11.31,
+          "end": 11.45,
+          "probability": 0.995
+        },
+        {
+          "word": " thì",
+          "start": 11.45,
+          "end": 11.67,
+          "probability": 0.876
+        },
+        {
+          "word": " không",
+          "start": 11.67,
+          "end": 12.17,
+          "probability": 0.478
+        },
+        {
+          "word": " đúng",
+          "start": 12.17,
+          "end": 12.39,
+          "probability": 0.978
+        },
+        {
+          "word": " theo",
+          "start": 12.39,
+          "end": 12.57,
+          "probability": 0.991
+        },
+        {
+          "word": " ngôn",
+          "start": 12.57,
+          "end": 12.77,
+          "probability": 0.894
+        },
+        {
+          "word": " ngữ",
+          "start": 12.77,
+          "end": 12.97,
+          "probability": 0.773
+        },
+        {
+          "word": " của",
+          "start": 12.97,
+          "end": 13.11,
+          "probability": 0.99
+        },
+        {
+          "word": " AI,",
+          "start": 13.11,
+          "end": 13.39,
+          "probability": 0.988
+        },
+        {
+          "word": " mình",
+          "start": 13.63,
+          "end": 13.73,
+          "probability": 0.987
+        },
+        {
+          "word": " cần",
+          "start": 13.73,
+          "end": 13.87,
+          "probability": 0.967
+        },
+        {
+          "word": " phải",
+          "start": 13.87,
+          "end": 14.03,
+          "probability": 0.978
+        },
+        {
+          "word": " lập",
+          "start": 14.03,
+          "end": 14.19,
+          "probability": 0.631
+        },
+        {
+          "word": " thông",
+          "start": 14.19,
+          "end": 14.39,
+          "probability": 0.954
+        },
+        {
+          "word": " tin",
+          "start": 14.39,
+          "end": 14.57,
+          "probability": 0.998
+        },
+        {
+          "word": " đúng",
+          "start": 14.57,
+          "end": 14.89,
+          "probability": 0.966
+        },
+        {
+          "word": " đủ",
+          "start": 14.89,
+          "end": 15.49,
+          "probability": 0.789
+        },
+        {
+          "word": " để",
+          "start": 15.49,
+          "end": 15.89,
+          "probability": 0.811
+        },
+        {
+          "word": " đưa",
+          "start": 15.89,
+          "end": 16.05,
+          "probability": 0.997
+        },
+        {
+          "word": " nó",
+          "start": 16.05,
+          "end": 16.23,
+          "probability": 0.977
+        },
+        {
+          "word": " đừng",
+          "start": 16.23,
+          "end": 16.53,
+          "probability": 0.795
+        },
+        {
+          "word": " có",
+          "start": 16.53,
+          "end": 16.67,
+          "probability": 0.877
+        },
+        {
+          "word": " đưa",
+          "start": 16.67,
+          "end": 16.81,
+          "probability": 0.995
+        },
+        {
+          "word": " quá",
+          "start": 16.81,
+          "end": 17.01,
+          "probability": 0.964
+        },
+        {
+          "word": " nhiều",
+          "start": 17.01,
+          "end": 17.25,
+          "probability": 0.995
+        },
+        {
+          "word": " hoặc",
+          "start": 17.25,
+          "end": 17.45,
+          "probability": 0.685
+        },
+        {
+          "word": " là",
+          "start": 17.45,
+          "end": 17.55,
+          "probability": 0.846
+        },
+        {
+          "word": " dư",
+          "start": 17.55,
+          "end": 17.75,
+          "probability": 0.873
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "start": 17.75,
+      "end": 22.05,
+      "text": "Thứ hai là anh em đòi AI nó phải thông minh giống như là cậu người",
+      "words": [
+        {
+          "word": " Thứ",
+          "start": 17.75,
+          "end": 18.43,
+          "probability": 0.956
+        },
+        {
+          "word": " hai",
+          "start": 18.43,
+          "end": 18.69,
+          "probability": 0.545
+        },
+        {
+          "word": " là",
+          "start": 18.69,
+          "end": 19.23,
+          "probability": 0.819
+        },
+        {
+          "word": " anh",
+          "start": 19.23,
+          "end": 19.43,
+          "probability": 0.837
+        },
+        {
+          "word": " em",
+          "start": 19.43,
+          "end": 19.51,
+          "probability": 0.996
+        },
+        {
+          "word": " đòi",
+          "start": 19.51,
+          "end": 19.87,
+          "probability": 0.959
+        },
+        {
+          "word": " AI",
+          "start": 19.87,
+          "end": 20.17,
+          "probability": 0.733
+        },
+        {
+          "word": " nó",
+          "start": 20.17,
+          "end": 20.31,
+          "probability": 0.769
+        },
+        {
+          "word": " phải",
+          "start": 20.31,
+          "end": 20.45,
+          "probability": 0.989
+        },
+        {
+          "word": " thông",
+          "start": 20.45,
+          "end": 20.67,
+          "probability": 0.979
+        },
+        {
+          "word": " minh",
+          "start": 20.67,
+          "end": 21.27,
+          "probability": 0.914
+        },
+        {
+          "word": " giống",
+          "start": 21.27,
+          "end": 21.39,
+          "probability": 0.835
+        },
+        {
+          "word": " như",
+          "start": 21.39,
+          "end": 21.53,
+          "probability": 0.979
+        },
+        {
+          "word": " là",
+          "start": 21.53,
+          "end": 21.63,
+          "probability": 0.941
+        },
+        {
+          "word": " cậu",
+          "start": 21.63,
+          "end": 21.77,
+          "probability": 0.663
+        },
+        {
+          "word": " người",
+          "start": 21.77,
+          "end": 22.05,
+          "probability": 0.995
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "start": 22.05,
+      "end": 28.73,
+      "text": "Thì cái việc mà khách hàng cần trả lời á thì những cái câu, những cái thông tin cơ bản về sản phẩm về giá",
+      "words": [
+        {
+          "word": " Thì",
+          "start": 22.05,
+          "end": 22.69,
+          "probability": 0.756
+        },
+        {
+          "word": " cái",
+          "start": 22.69,
+          "end": 23.71,
+          "probability": 0.263
+        },
+        {
+          "word": " việc",
+          "start": 23.71,
+          "end": 23.87,
+          "probability": 0.992
+        },
+        {
+          "word": " mà",
+          "start": 23.87,
+          "end": 24.13,
+          "probability": 0.937
+        },
+        {
+          "word": " khách",
+          "start": 24.13,
+          "end": 24.27,
+          "probability": 0.86
+        },
+        {
+          "word": " hàng",
+          "start": 24.27,
+          "end": 24.49,
+          "probability": 0.985
+        },
+        {
+          "word": " cần",
+          "start": 24.49,
+          "end": 24.67,
+          "probability": 0.475
+        },
+        {
+          "word": " trả",
+          "start": 24.67,
+          "end": 24.83,
+          "probability": 0.655
+        },
+        {
+          "word": " lời",
+          "start": 24.83,
+          "end": 25.01,
+          "probability": 0.997
+        },
+        {
+          "word": " á",
+          "start": 25.01,
+          "end": 25.19,
+          "probability": 0.499
+        },
+        {
+          "word": " thì",
+          "start": 25.19,
+          "end": 25.51,
+          "probability": 0.23
+        },
+        {
+          "word": " những",
+          "start": 25.51,
+          "end": 25.69,
+          "probability": 0.91
+        },
+        {
+          "word": " cái",
+          "start": 25.69,
+          "end": 25.83,
+          "probability": 0.463
+        },
+        {
+          "word": " câu,",
+          "start": 25.83,
+          "end": 26.07,
+          "probability": 0.884
+        },
+        {
+          "word": " những",
+          "start": 26.19,
+          "end": 26.25,
+          "probability": 0.898
+        },
+        {
+          "word": " cái",
+          "start": 26.25,
+          "end": 26.37,
+          "probability": 0.891
+        },
+        {
+          "word": " thông",
+          "start": 26.37,
+          "end": 26.49,
+          "probability": 0.998
+        },
+        {
+          "word": " tin",
+          "start": 26.49,
+          "end": 26.71,
+          "probability": 0.998
+        },
+        {
+          "word": " cơ",
+          "start": 26.71,
+          "end": 27.15,
+          "probability": 0.934
+        },
+        {
+          "word": " bản",
+          "start": 27.15,
+          "end": 27.35,
+          "probability": 0.974
+        },
+        {
+          "word": " về",
+          "start": 27.35,
+          "end": 27.53,
+          "probability": 0.692
+        },
+        {
+          "word": " sản",
+          "start": 27.53,
+          "end": 27.73,
+          "probability": 0.955
+        },
+        {
+          "word": " phẩm",
+          "start": 27.73,
+          "end": 27.93,
+          "probability": 0.996
+        },
+        {
+          "word": " về",
+          "start": 27.93,
+          "end": 28.07,
+          "probability": 0.371
+        },
+        {
+          "word": " giá",
+          "start": 28.07,
+          "end": 28.73,
+          "probability": 0.95
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "start": 28.73,
+      "end": 33.57,
+      "text": "Mình chỉ đưa đúng những cái đó kèm theo quy trình làm việc như thế nào",
+      "words": [
+        {
+          "word": " Mình",
+          "start": 28.73,
+          "end": 28.93,
+          "probability": 0.496
+        },
+        {
+          "word": " chỉ",
+          "start": 28.93,
+          "end": 29.11,
+          "probability": 0.78
+        },
+        {
+          "word": " đưa",
+          "start": 29.11,
+          "end": 29.41,
+          "probability": 0.655
+        },
+        {
+          "word": " đúng",
+          "start": 29.41,
+          "end": 29.57,
+          "probability": 0.682
+        },
+        {
+          "word": " những",
+          "start": 29.57,
+          "end": 29.69,
+          "probability": 0.356
+        },
+        {
+          "word": " cái",
+          "start": 29.69,
+          "end": 29.79,
+          "probability": 0.353
+        },
+        {
+          "word": " đó",
+          "start": 29.79,
+          "end": 29.95,
+          "probability": 0.989
+        },
+        {
+          "word": " kèm",
+          "start": 29.95,
+          "end": 30.65,
+          "probability": 0.763
+        },
+        {
+          "word": " theo",
+          "start": 30.65,
+          "end": 30.87,
+          "probability": 0.985
+        },
+        {
+          "word": " quy",
+          "start": 30.87,
+          "end": 31.37,
+          "probability": 0.445
+        },
+        {
+          "word": " trình",
+          "start": 31.37,
+          "end": 31.61,
+          "probability": 0.903
+        },
+        {
+          "word": " làm",
+          "start": 31.61,
+          "end": 31.85,
+          "probability": 0.967
+        },
+        {
+          "word": " việc",
+          "start": 31.85,
+          "end": 33.13,
+          "probability": 0.965
+        },
+        {
+          "word": " như",
+          "start": 33.13,
+          "end": 33.25,
+          "probability": 0.779
+        },
+        {
+          "word": " thế",
+          "start": 33.25,
+          "end": 33.35,
+          "probability": 0.999
+        },
+        {
+          "word": " nào",
+          "start": 33.35,
+          "end": 33.57,
+          "probability": 0.994
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "start": 33.57,
+      "end": 38.65,
+      "text": "Tư vấn như thế nào và những câu mẫu ví dụ về phong cách trả lời, nó sẽ tự động làm việc được",
+      "words": [
+        {
+          "word": " Tư",
+          "start": 33.57,
+          "end": 34.23,
+          "probability": 0.171
+        },
+        {
+          "word": " vấn",
+          "start": 34.23,
+          "end": 34.37,
+          "probability": 0.637
+        },
+        {
+          "word": " như",
+          "start": 34.37,
+          "end": 34.51,
+          "probability": 0.82
+        },
+        {
+          "word": " thế",
+          "start": 34.51,
+          "end": 34.61,
+          "probability": 0.999
+        },
+        {
+          "word": " nào",
+          "start": 34.61,
+          "end": 34.89,
+          "probability": 0.998
+        },
+        {
+          "word": " và",
+          "start": 34.89,
+          "end": 35.05,
+          "probability": 0.375
+        },
+        {
+          "word": " những",
+          "start": 35.05,
+          "end": 35.23,
+          "probability": 0.743
+        },
+        {
+          "word": " câu",
+          "start": 35.23,
+          "end": 35.57,
+          "probability": 0.989
+        },
+        {
+          "word": " mẫu",
+          "start": 35.57,
+          "end": 35.89,
+          "probability": 0.834
+        },
+        {
+          "word": " ví",
+          "start": 35.89,
+          "end": 36.11,
+          "probability": 0.201
+        },
+        {
+          "word": " dụ",
+          "start": 36.11,
+          "end": 36.37,
+          "probability": 0.926
+        },
+        {
+          "word": " về",
+          "start": 36.37,
+          "end": 36.69,
+          "probability": 0.878
+        },
+        {
+          "word": " phong",
+          "start": 36.69,
+          "end": 36.87,
+          "probability": 0.973
+        },
+        {
+          "word": " cách",
+          "start": 36.87,
+          "end": 37.01,
+          "probability": 0.967
+        },
+        {
+          "word": " trả",
+          "start": 37.01,
+          "end": 37.15,
+          "probability": 0.513
+        },
+        {
+          "word": " lời,",
+          "start": 37.15,
+          "end": 37.31,
+          "probability": 0.988
+        },
+        {
+          "word": " nó",
+          "start": 37.43,
+          "end": 37.83,
+          "probability": 0.919
+        },
+        {
+          "word": " sẽ",
+          "start": 37.83,
+          "end": 37.99,
+          "probability": 0.965
+        },
+        {
+          "word": " tự",
+          "start": 37.99,
+          "end": 38.13,
+          "probability": 0.854
+        },
+        {
+          "word": " động",
+          "start": 38.13,
+          "end": 38.27,
+          "probability": 0.718
+        },
+        {
+          "word": " làm",
+          "start": 38.27,
+          "end": 38.39,
+          "probability": 0.988
+        },
+        {
+          "word": " việc",
+          "start": 38.39,
+          "end": 38.53,
+          "probability": 0.957
+        },
+        {
+          "word": " được",
+          "start": 38.53,
+          "end": 38.65,
+          "probability": 0.854
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "start": 38.65,
+      "end": 43.31,
+      "text": "Và thứ ba là anh em không chịu tết, cái gì cũng quanh AI rồi nó tự xử lý",
+      "words": [
+        {
+          "word": " Và",
+          "start": 38.65,
+          "end": 39.27,
+          "probability": 0.275
+        },
+        {
+          "word": " thứ",
+          "start": 39.27,
+          "end": 39.41,
+          "probability": 0.979
+        },
+        {
+          "word": " ba",
+          "start": 39.41,
+          "end": 39.65,
+          "probability": 0.615
+        },
+        {
+          "word": " là",
+          "start": 39.65,
+          "end": 39.93,
+          "probability": 0.975
+        },
+        {
+          "word": " anh",
+          "start": 39.93,
+          "end": 40.45,
+          "probability": 0.544
+        },
+        {
+          "word": " em",
+          "start": 40.45,
+          "end": 40.57,
+          "probability": 0.993
+        },
+        {
+          "word": " không",
+          "start": 40.57,
+          "end": 40.79,
+          "probability": 0.993
+        },
+        {
+          "word": " chịu",
+          "start": 40.79,
+          "end": 41.07,
+          "probability": 0.744
+        },
+        {
+          "word": " tết,",
+          "start": 41.07,
+          "end": 41.29,
+          "probability": 0.461
+        },
+        {
+          "word": " cái",
+          "start": 41.51,
+          "end": 41.85,
+          "probability": 0.911
+        },
+        {
+          "word": " gì",
+          "start": 41.85,
+          "end": 42.03,
+          "probability": 0.999
+        },
+        {
+          "word": " cũng",
+          "start": 42.03,
+          "end": 42.17,
+          "probability": 0.958
+        },
+        {
+          "word": " quanh",
+          "start": 42.17,
+          "end": 42.43,
+          "probability": 0.872
+        },
+        {
+          "word": " AI",
+          "start": 42.43,
+          "end": 42.59,
+          "probability": 0.822
+        },
+        {
+          "word": " rồi",
+          "start": 42.59,
+          "end": 42.75,
+          "probability": 0.411
+        },
+        {
+          "word": " nó",
+          "start": 42.75,
+          "end": 42.89,
+          "probability": 0.5
+        },
+        {
+          "word": " tự",
+          "start": 42.89,
+          "end": 43.03,
+          "probability": 0.933
+        },
+        {
+          "word": " xử",
+          "start": 43.03,
+          "end": 43.17,
+          "probability": 0.755
+        },
+        {
+          "word": " lý",
+          "start": 43.17,
+          "end": 43.31,
+          "probability": 0.996
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "start": 43.31,
+      "end": 46.23,
+      "text": "Như vậy thì AI nó không đủ thông minh để tự xử lý đâu",
+      "words": [
+        {
+          "word": " Như",
+          "start": 43.31,
+          "end": 43.63,
+          "probability": 0.559
+        },
+        {
+          "word": " vậy",
+          "start": 43.63,
+          "end": 43.73,
+          "probability": 0.65
+        },
+        {
+          "word": " thì",
+          "start": 43.73,
+          "end": 43.87,
+          "probability": 0.94
+        },
+        {
+          "word": " AI",
+          "start": 43.87,
+          "end": 44.37,
+          "probability": 0.807
+        },
+        {
+          "word": " nó",
+          "start": 44.37,
+          "end": 44.59,
+          "probability": 0.556
+        },
+        {
+          "word": " không",
+          "start": 44.59,
+          "end": 44.77,
+          "probability": 0.989
+        },
+        {
+          "word": " đủ",
+          "start": 44.77,
+          "end": 44.97,
+          "probability": 0.851
+        },
+        {
+          "word": " thông",
+          "start": 44.97,
+          "end": 45.17,
+          "probability": 0.521
+        },
+        {
+          "word": " minh",
+          "start": 45.17,
+          "end": 45.41,
+          "probability": 0.988
+        },
+        {
+          "word": " để",
+          "start": 45.41,
+          "end": 45.49,
+          "probability": 0.962
+        },
+        {
+          "word": " tự",
+          "start": 45.49,
+          "end": 45.75,
+          "probability": 0.825
+        },
+        {
+          "word": " xử",
+          "start": 45.75,
+          "end": 45.93,
+          "probability": 0.989
+        },
+        {
+          "word": " lý",
+          "start": 45.93,
+          "end": 46.07,
+          "probability": 0.998
+        },
+        {
+          "word": " đâu",
+          "start": 46.07,
+          "end": 46.23,
+          "probability": 0.046
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "start": 46.23,
+      "end": 52.47,
+      "text": "Bản chắc AI nó là xin tự, anh em đưa cái thông tin nào nhìn nhé, nó sẽ tự xử lý theo những cái thông tin đó",
+      "words": [
+        {
+          "word": " Bản",
+          "start": 46.23,
+          "end": 46.83,
+          "probability": 0.685
+        },
+        {
+          "word": " chắc",
+          "start": 46.83,
+          "end": 46.99,
+          "probability": 0.885
+        },
+        {
+          "word": " AI",
+          "start": 46.99,
+          "end": 47.25,
+          "probability": 0.966
+        },
+        {
+          "word": " nó",
+          "start": 47.25,
+          "end": 47.39,
+          "probability": 0.525
+        },
+        {
+          "word": " là",
+          "start": 47.39,
+          "end": 47.57,
+          "probability": 0.871
+        },
+        {
+          "word": " xin",
+          "start": 47.57,
+          "end": 48.05,
+          "probability": 0.569
+        },
+        {
+          "word": " tự,",
+          "start": 48.05,
+          "end": 48.33,
+          "probability": 0.738
+        },
+        {
+          "word": " anh",
+          "start": 48.83,
+          "end": 48.97,
+          "probability": 0.983
+        },
+        {
+          "word": " em",
+          "start": 48.97,
+          "end": 49.17,
+          "probability": 0.995
+        },
+        {
+          "word": " đưa",
+          "start": 49.17,
+          "end": 49.51,
+          "probability": 0.995
+        },
+        {
+          "word": " cái",
+          "start": 49.51,
+          "end": 49.73,
+          "probability": 0.586
+        },
+        {
+          "word": " thông",
+          "start": 49.73,
+          "end": 49.97,
+          "probability": 0.977
+        },
+        {
+          "word": " tin",
+          "start": 49.97,
+          "end": 50.13,
+          "probability": 0.844
+        },
+        {
+          "word": " nào",
+          "start": 50.13,
+          "end": 50.33,
+          "probability": 0.965
+        },
+        {
+          "word": " nhìn",
+          "start": 50.33,
+          "end": 50.53,
+          "probability": 0.738
+        },
+        {
+          "word": " nhé,",
+          "start": 50.53,
+          "end": 50.79,
+          "probability": 0.704
+        },
+        {
+          "word": " nó",
+          "start": 50.87,
+          "end": 50.99,
+          "probability": 0.932
+        },
+        {
+          "word": " sẽ",
+          "start": 50.99,
+          "end": 51.15,
+          "probability": 0.985
+        },
+        {
+          "word": " tự",
+          "start": 51.15,
+          "end": 51.33,
+          "probability": 0.976
+        },
+        {
+          "word": " xử",
+          "start": 51.33,
+          "end": 51.53,
+          "probability": 0.994
+        },
+        {
+          "word": " lý",
+          "start": 51.53,
+          "end": 51.65,
+          "probability": 0.999
+        },
+        {
+          "word": " theo",
+          "start": 51.65,
+          "end": 51.81,
+          "probability": 0.978
+        },
+        {
+          "word": " những",
+          "start": 51.81,
+          "end": 51.93,
+          "probability": 0.851
+        },
+        {
+          "word": " cái",
+          "start": 51.93,
+          "end": 52.01,
+          "probability": 0.24
+        },
+        {
+          "word": " thông",
+          "start": 52.01,
+          "end": 52.15,
+          "probability": 0.988
+        },
+        {
+          "word": " tin",
+          "start": 52.15,
+          "end": 52.27,
+          "probability": 0.998
+        },
+        {
+          "word": " đó",
+          "start": 52.27,
+          "end": 52.47,
+          "probability": 0.987
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "start": 52.47,
+      "end": 56.99,
+      "text": "Cho nên là cái việc quan trọng để chất bót AI nó có thể hợp động được theo đúng ý mình",
+      "words": [
+        {
+          "word": " Cho",
+          "start": 52.47,
+          "end": 53.13,
+          "probability": 0.862
+        },
+        {
+          "word": " nên",
+          "start": 53.13,
+          "end": 53.29,
+          "probability": 0.999
+        },
+        {
+          "word": " là",
+          "start": 53.29,
+          "end": 53.49,
+          "probability": 0.954
+        },
+        {
+          "word": " cái",
+          "start": 53.49,
+          "end": 53.83,
+          "probability": 0.307
+        },
+        {
+          "word": " việc",
+          "start": 53.83,
+          "end": 53.97,
+          "probability": 0.998
+        },
+        {
+          "word": " quan",
+          "start": 53.97,
+          "end": 54.19,
+          "probability": 0.942
+        },
+        {
+          "word": " trọng",
+          "start": 54.19,
+          "end": 54.47,
+          "probability": 0.997
+        },
+        {
+          "word": " để",
+          "start": 54.47,
+          "end": 54.69,
+          "probability": 0.983
+        },
+        {
+          "word": " chất",
+          "start": 54.69,
+          "end": 54.89,
+          "probability": 0.449
+        },
+        {
+          "word": " bót",
+          "start": 54.89,
+          "end": 55.01,
+          "probability": 0.451
+        },
+        {
+          "word": " AI",
+          "start": 55.01,
+          "end": 55.27,
+          "probability": 0.978
+        },
+        {
+          "word": " nó",
+          "start": 55.27,
+          "end": 55.47,
+          "probability": 0.418
+        },
+        {
+          "word": " có",
+          "start": 55.47,
+          "end": 55.59,
+          "probability": 0.85
+        },
+        {
+          "word": " thể",
+          "start": 55.59,
+          "end": 55.73,
+          "probability": 0.996
+        },
+        {
+          "word": " hợp",
+          "start": 55.73,
+          "end": 55.99,
+          "probability": 0.75
+        },
+        {
+          "word": " động",
+          "start": 55.99,
+          "end": 56.17,
+          "probability": 0.364
+        },
+        {
+          "word": " được",
+          "start": 56.17,
+          "end": 56.35,
+          "probability": 0.969
+        },
+        {
+          "word": " theo",
+          "start": 56.35,
+          "end": 56.53,
+          "probability": 0.985
+        },
+        {
+          "word": " đúng",
+          "start": 56.53,
+          "end": 56.69,
+          "probability": 0.977
+        },
+        {
+          "word": " ý",
+          "start": 56.69,
+          "end": 56.81,
+          "probability": 0.926
+        },
+        {
+          "word": " mình",
+          "start": 56.81,
+          "end": 56.99,
+          "probability": 0.993
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "start": 56.99,
+      "end": 61.33,
+      "text": "Thì anh em mình không phải đưa đúng quy trình này, đưa đủ những cái thông tin thôi",
+      "words": [
+        {
+          "word": " Thì",
+          "start": 56.99,
+          "end": 57.55,
+          "probability": 0.263
+        },
+        {
+          "word": " anh",
+          "start": 57.55,
+          "end": 57.77,
+          "probability": 0.896
+        },
+        {
+          "word": " em",
+          "start": 57.77,
+          "end": 57.87,
+          "probability": 0.981
+        },
+        {
+          "word": " mình",
+          "start": 57.87,
+          "end": 57.99,
+          "probability": 0.79
+        },
+        {
+          "word": " không",
+          "start": 57.99,
+          "end": 58.13,
+          "probability": 0.073
+        },
+        {
+          "word": " phải",
+          "start": 58.13,
+          "end": 58.39,
+          "probability": 0.996
+        },
+        {
+          "word": " đưa",
+          "start": 58.39,
+          "end": 58.79,
+          "probability": 0.933
+        },
+        {
+          "word": " đúng",
+          "start": 58.79,
+          "end": 58.93,
+          "probability": 0.833
+        },
+        {
+          "word": " quy",
+          "start": 58.93,
+          "end": 59.07,
+          "probability": 0.479
+        },
+        {
+          "word": " trình",
+          "start": 59.07,
+          "end": 59.27,
+          "probability": 0.946
+        },
+        {
+          "word": " này,",
+          "start": 59.27,
+          "end": 59.49,
+          "probability": 0.748
+        },
+        {
+          "word": " đưa",
+          "start": 59.83,
+          "end": 60.01,
+          "probability": 0.953
+        },
+        {
+          "word": " đủ",
+          "start": 60.01,
+          "end": 60.65,
+          "probability": 0.95
+        },
+        {
+          "word": " những",
+          "start": 60.65,
+          "end": 60.81,
+          "probability": 0.923
+        },
+        {
+          "word": " cái",
+          "start": 60.81,
+          "end": 60.93,
+          "probability": 0.202
+        },
+        {
+          "word": " thông",
+          "start": 60.93,
+          "end": 61.03,
+          "probability": 0.948
+        },
+        {
+          "word": " tin",
+          "start": 61.03,
+          "end": 61.15,
+          "probability": 0.927
+        },
+        {
+          "word": " thôi",
+          "start": 61.15,
+          "end": 61.33,
+          "probability": 0.861
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "start": 61.33,
+      "end": 66.85,
+      "text": "Đừng có đưa dư, đừng có đưa những cái thông tin mà làm cho AI nó bị sang nhãn đi",
+      "words": [
+        {
+          "word": " Đừng",
+          "start": 61.33,
+          "end": 61.67,
+          "probability": 0.598
+        },
+        {
+          "word": " có",
+          "start": 61.67,
+          "end": 61.75,
+          "probability": 0.954
+        },
+        {
+          "word": " đưa",
+          "start": 61.75,
+          "end": 61.85,
+          "probability": 0.926
+        },
+        {
+          "word": " dư,",
+          "start": 61.85,
+          "end": 62.03,
+          "probability": 0.787
+        },
+        {
+          "word": " đừng",
+          "start": 62.39,
+          "end": 62.63,
+          "probability": 0.897
+        },
+        {
+          "word": " có",
+          "start": 62.63,
+          "end": 62.77,
+          "probability": 0.99
+        },
+        {
+          "word": " đưa",
+          "start": 62.77,
+          "end": 62.89,
+          "probability": 0.996
+        },
+        {
+          "word": " những",
+          "start": 62.89,
+          "end": 63.05,
+          "probability": 0.966
+        },
+        {
+          "word": " cái",
+          "start": 63.05,
+          "end": 63.21,
+          "probability": 0.86
+        },
+        {
+          "word": " thông",
+          "start": 63.21,
+          "end": 63.35,
+          "probability": 0.969
+        },
+        {
+          "word": " tin",
+          "start": 63.35,
+          "end": 63.55,
+          "probability": 0.995
+        },
+        {
+          "word": " mà",
+          "start": 63.55,
+          "end": 63.79,
+          "probability": 0.446
+        },
+        {
+          "word": " làm",
+          "start": 63.79,
+          "end": 64.41,
+          "probability": 0.981
+        },
+        {
+          "word": " cho",
+          "start": 64.41,
+          "end": 64.59,
+          "probability": 0.879
+        },
+        {
+          "word": " AI",
+          "start": 64.59,
+          "end": 64.81,
+          "probability": 0.899
+        },
+        {
+          "word": " nó",
+          "start": 64.81,
+          "end": 64.99,
+          "probability": 0.472
+        },
+        {
+          "word": " bị",
+          "start": 64.99,
+          "end": 65.17,
+          "probability": 0.993
+        },
+        {
+          "word": " sang",
+          "start": 65.17,
+          "end": 66.47,
+          "probability": 0.262
+        },
+        {
+          "word": " nhãn",
+          "start": 66.47,
+          "end": 66.77,
+          "probability": 0.698
+        },
+        {
+          "word": " đi",
+          "start": 66.77,
+          "end": 66.85,
+          "probability": 0.922
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "start": 66.85,
+      "end": 70.59,
+      "text": "Rồi thứ ba là mình phải test và kiểm tra liên tục, mình theo dõi rồi mình update",
+      "words": [
+        {
+          "word": " Rồi",
+          "start": 66.85,
+          "end": 67.55,
+          "probability": 0.894
+        },
+        {
+          "word": " thứ",
+          "start": 67.55,
+          "end": 67.73,
+          "probability": 0.63
+        },
+        {
+          "word": " ba",
+          "start": 67.73,
+          "end": 67.95,
+          "probability": 0.525
+        },
+        {
+          "word": " là",
+          "start": 67.95,
+          "end": 68.07,
+          "probability": 0.967
+        },
+        {
+          "word": " mình",
+          "start": 68.07,
+          "end": 68.19,
+          "probability": 0.948
+        },
+        {
+          "word": " phải",
+          "start": 68.19,
+          "end": 68.33,
+          "probability": 0.992
+        },
+        {
+          "word": " test",
+          "start": 68.33,
+          "end": 68.55,
+          "probability": 0.629
+        },
+        {
+          "word": " và",
+          "start": 68.55,
+          "end": 68.81,
+          "probability": 0.831
+        },
+        {
+          "word": " kiểm",
+          "start": 68.81,
+          "end": 68.97,
+          "probability": 0.925
+        },
+        {
+          "word": " tra",
+          "start": 68.97,
+          "end": 69.11,
+          "probability": 0.994
+        },
+        {
+          "word": " liên",
+          "start": 69.11,
+          "end": 69.27,
+          "probability": 0.974
+        },
+        {
+          "word": " tục,",
+          "start": 69.27,
+          "end": 69.43,
+          "probability": 0.927
+        },
+        {
+          "word": " mình",
+          "start": 69.55,
+          "end": 69.75,
+          "probability": 0.939
+        },
+        {
+          "word": " theo",
+          "start": 69.75,
+          "end": 69.89,
+          "probability": 0.988
+        },
+        {
+          "word": " dõi",
+          "start": 69.89,
+          "end": 70.15,
+          "probability": 0.994
+        },
+        {
+          "word": " rồi",
+          "start": 70.15,
+          "end": 70.31,
+          "probability": 0.705
+        },
+        {
+          "word": " mình",
+          "start": 70.31,
+          "end": 70.41,
+          "probability": 0.601
+        },
+        {
+          "word": " update",
+          "start": 70.41,
+          "end": 70.59,
+          "probability": 0.813
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "start": 70.59,
+      "end": 76.95,
+      "text": "Thì dần dần mình sẽ có AI thông minh và khách hàng họ chỉ cần trả lời đúng những cái thông tin",
+      "words": [
+        {
+          "word": " Thì",
+          "start": 70.59,
+          "end": 71.27,
+          "probability": 0.764
+        },
+        {
+          "word": " dần",
+          "start": 71.27,
+          "end": 71.51,
+          "probability": 0.933
+        },
+        {
+          "word": " dần",
+          "start": 71.51,
+          "end": 71.69,
+          "probability": 0.74
+        },
+        {
+          "word": " mình",
+          "start": 71.69,
+          "end": 71.89,
+          "probability": 0.982
+        },
+        {
+          "word": " sẽ",
+          "start": 71.89,
+          "end": 72.13,
+          "probability": 0.996
+        },
+        {
+          "word": " có",
+          "start": 72.13,
+          "end": 72.37,
+          "probability": 0.999
+        },
+        {
+          "word": " AI",
+          "start": 72.37,
+          "end": 73.03,
+          "probability": 0.984
+        },
+        {
+          "word": " thông",
+          "start": 73.03,
+          "end": 73.33,
+          "probability": 0.974
+        },
+        {
+          "word": " minh",
+          "start": 73.33,
+          "end": 74.09,
+          "probability": 0.745
+        },
+        {
+          "word": " và",
+          "start": 74.09,
+          "end": 74.23,
+          "probability": 0.114
+        },
+        {
+          "word": " khách",
+          "start": 74.23,
+          "end": 74.79,
+          "probability": 0.854
+        },
+        {
+          "word": " hàng",
+          "start": 74.79,
+          "end": 75.09,
+          "probability": 0.98
+        },
+        {
+          "word": " họ",
+          "start": 75.09,
+          "end": 75.33,
+          "probability": 0.961
+        },
+        {
+          "word": " chỉ",
+          "start": 75.33,
+          "end": 75.57,
+          "probability": 0.997
+        },
+        {
+          "word": " cần",
+          "start": 75.57,
+          "end": 75.71,
+          "probability": 0.871
+        },
+        {
+          "word": " trả",
+          "start": 75.71,
+          "end": 75.89,
+          "probability": 0.891
+        },
+        {
+          "word": " lời",
+          "start": 75.89,
+          "end": 76.03,
+          "probability": 0.97
+        },
+        {
+          "word": " đúng",
+          "start": 76.03,
+          "end": 76.23,
+          "probability": 0.962
+        },
+        {
+          "word": " những",
+          "start": 76.23,
+          "end": 76.49,
+          "probability": 0.832
+        },
+        {
+          "word": " cái",
+          "start": 76.49,
+          "end": 76.61,
+          "probability": 0.904
+        },
+        {
+          "word": " thông",
+          "start": 76.61,
+          "end": 76.75,
+          "probability": 0.944
+        },
+        {
+          "word": " tin",
+          "start": 76.75,
+          "end": 76.95,
+          "probability": 0.995
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "start": 76.95,
+      "end": 83.09,
+      "text": "Những cái mà họ muốn thôi, như là họ muốn hỏi về giá, họ muốn hỏi về cái thông tin sản phẩm",
+      "words": [
+        {
+          "word": " Những",
+          "start": 76.95,
+          "end": 77.21,
+          "probability": 0.202
+        },
+        {
+          "word": " cái",
+          "start": 77.21,
+          "end": 77.95,
+          "probability": 0.962
+        },
+        {
+          "word": " mà",
+          "start": 77.95,
+          "end": 78.71,
+          "probability": 0.708
+        },
+        {
+          "word": " họ",
+          "start": 78.71,
+          "end": 78.91,
+          "probability": 0.957
+        },
+        {
+          "word": " muốn",
+          "start": 78.91,
+          "end": 79.13,
+          "probability": 0.982
+        },
+        {
+          "word": " thôi,",
+          "start": 79.13,
+          "end": 79.35,
+          "probability": 0.226
+        },
+        {
+          "word": " như",
+          "start": 79.51,
+          "end": 79.93,
+          "probability": 0.834
+        },
+        {
+          "word": " là",
+          "start": 79.93,
+          "end": 80.09,
+          "probability": 0.947
+        },
+        {
+          "word": " họ",
+          "start": 80.09,
+          "end": 80.23,
+          "probability": 0.982
+        },
+        {
+          "word": " muốn",
+          "start": 80.23,
+          "end": 80.39,
+          "probability": 0.988
+        },
+        {
+          "word": " hỏi",
+          "start": 80.39,
+          "end": 80.57,
+          "probability": 0.924
+        },
+        {
+          "word": " về",
+          "start": 80.57,
+          "end": 80.75,
+          "probability": 0.891
+        },
+        {
+          "word": " giá,",
+          "start": 80.75,
+          "end": 81.07,
+          "probability": 0.968
+        },
+        {
+          "word": " họ",
+          "start": 81.61,
+          "end": 81.65,
+          "probability": 0.955
+        },
+        {
+          "word": " muốn",
+          "start": 81.65,
+          "end": 81.75,
+          "probability": 0.995
+        },
+        {
+          "word": " hỏi",
+          "start": 81.75,
+          "end": 81.97,
+          "probability": 0.992
+        },
+        {
+          "word": " về",
+          "start": 81.97,
+          "end": 82.17,
+          "probability": 0.983
+        },
+        {
+          "word": " cái",
+          "start": 82.17,
+          "end": 82.29,
+          "probability": 0.659
+        },
+        {
+          "word": " thông",
+          "start": 82.29,
+          "end": 82.43,
+          "probability": 0.989
+        },
+        {
+          "word": " tin",
+          "start": 82.43,
+          "end": 82.59,
+          "probability": 0.988
+        },
+        {
+          "word": " sản",
+          "start": 82.59,
+          "end": 82.81,
+          "probability": 0.949
+        },
+        {
+          "word": " phẩm",
+          "start": 82.81,
+          "end": 83.09,
+          "probability": 0.996
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "start": 83.09,
+      "end": 87.13,
+      "text": "Chỉ biết họ như thế nào thì mình chỉ cần tư vắng đúng những cái đó là đã được rồi",
+      "words": [
+        {
+          "word": " Chỉ",
+          "start": 83.09,
+          "end": 83.33,
+          "probability": 0.229
+        },
+        {
+          "word": " biết",
+          "start": 83.33,
+          "end": 83.45,
+          "probability": 0.118
+        },
+        {
+          "word": " họ",
+          "start": 83.45,
+          "end": 83.57,
+          "probability": 0.037
+        },
+        {
+          "word": " như",
+          "start": 83.57,
+          "end": 83.65,
+          "probability": 0.917
+        },
+        {
+          "word": " thế",
+          "start": 83.65,
+          "end": 83.77,
+          "probability": 0.996
+        },
+        {
+          "word": " nào",
+          "start": 83.77,
+          "end": 84.01,
+          "probability": 0.969
+        },
+        {
+          "word": " thì",
+          "start": 84.01,
+          "end": 84.45,
+          "probability": 0.534
+        },
+        {
+          "word": " mình",
+          "start": 84.45,
+          "end": 84.59,
+          "probability": 0.925
+        },
+        {
+          "word": " chỉ",
+          "start": 84.59,
+          "end": 84.73,
+          "probability": 0.851
+        },
+        {
+          "word": " cần",
+          "start": 84.73,
+          "end": 84.85,
+          "probability": 0.214
+        },
+        {
+          "word": " tư",
+          "start": 84.85,
+          "end": 84.99,
+          "probability": 0.938
+        },
+        {
+          "word": " vắng",
+          "start": 84.99,
+          "end": 85.17,
+          "probability": 0.748
+        },
+        {
+          "word": " đúng",
+          "start": 85.17,
+          "end": 85.43,
+          "probability": 0.276
+        },
+        {
+          "word": " những",
+          "start": 85.43,
+          "end": 85.67,
+          "probability": 0.303
+        },
+        {
+          "word": " cái",
+          "start": 85.67,
+          "end": 85.77,
+          "probability": 0.769
+        },
+        {
+          "word": " đó",
+          "start": 85.77,
+          "end": 85.89,
+          "probability": 0.956
+        },
+        {
+          "word": " là",
+          "start": 85.89,
+          "end": 86.55,
+          "probability": 0.895
+        },
+        {
+          "word": " đã",
+          "start": 86.55,
+          "end": 86.77,
+          "probability": 0.896
+        },
+        {
+          "word": " được",
+          "start": 86.77,
+          "end": 86.85,
+          "probability": 0.984
+        },
+        {
+          "word": " rồi",
+          "start": 86.85,
+          "end": 87.13,
+          "probability": 0.996
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "start": 87.13,
+      "end": 91.73,
+      "text": "Nên là đừng cho AI nó quá thông minh để nó có thể hiểu giống cho con người",
+      "words": [
+        {
+          "word": " Nên",
+          "start": 87.13,
+          "end": 87.69,
+          "probability": 0.534
+        },
+        {
+          "word": " là",
+          "start": 87.69,
+          "end": 87.79,
+          "probability": 0.956
+        },
+        {
+          "word": " đừng",
+          "start": 87.79,
+          "end": 88.03,
+          "probability": 0.988
+        },
+        {
+          "word": " cho",
+          "start": 88.03,
+          "end": 88.87,
+          "probability": 0.823
+        },
+        {
+          "word": " AI",
+          "start": 88.87,
+          "end": 89.11,
+          "probability": 0.0
+        },
+        {
+          "word": " nó",
+          "start": 89.11,
+          "end": 89.29,
+          "probability": 0.735
+        },
+        {
+          "word": " quá",
+          "start": 89.29,
+          "end": 89.41,
+          "probability": 0.931
+        },
+        {
+          "word": " thông",
+          "start": 89.41,
+          "end": 89.61,
+          "probability": 0.499
+        },
+        {
+          "word": " minh",
+          "start": 89.61,
+          "end": 89.87,
+          "probability": 0.986
+        },
+        {
+          "word": " để",
+          "start": 89.87,
+          "end": 89.93,
+          "probability": 0.975
+        },
+        {
+          "word": " nó",
+          "start": 89.93,
+          "end": 90.05,
+          "probability": 0.952
+        },
+        {
+          "word": " có",
+          "start": 90.05,
+          "end": 90.21,
+          "probability": 0.868
+        },
+        {
+          "word": " thể",
+          "start": 90.21,
+          "end": 90.33,
+          "probability": 0.999
+        },
+        {
+          "word": " hiểu",
+          "start": 90.33,
+          "end": 91.19,
+          "probability": 0.964
+        },
+        {
+          "word": " giống",
+          "start": 91.19,
+          "end": 91.35,
+          "probability": 0.56
+        },
+        {
+          "word": " cho",
+          "start": 91.35,
+          "end": 91.45,
+          "probability": 0.353
+        },
+        {
+          "word": " con",
+          "start": 91.45,
+          "end": 91.53,
+          "probability": 0.928
+        },
+        {
+          "word": " người",
+          "start": 91.53,
+          "end": 91.73,
+          "probability": 0.994
+        }
+      ]
+    }
+  ],
+  "word_timestamps": [
+    {
+      "word": " Ba",
+      "start": 0.37,
+      "end": 0.91,
+      "probability": 0.145
+    },
+    {
+      "word": " sai",
+      "start": 0.91,
+      "end": 1.09,
+      "probability": 0.272
+    },
+    {
+      "word": " làm",
+      "start": 1.09,
+      "end": 1.27,
+      "probability": 0.872
+    },
+    {
+      "word": " khiến",
+      "start": 1.27,
+      "end": 1.51,
+      "probability": 0.979
+    },
+    {
+      "word": " cho",
+      "start": 1.51,
+      "end": 1.69,
+      "probability": 0.952
+    },
+    {
+      "word": " anh",
+      "start": 1.69,
+      "end": 1.93,
+      "probability": 0.977
+    },
+    {
+      "word": " em",
+      "start": 1.93,
+      "end": 2.03,
+      "probability": 0.991
+    },
+    {
+      "word": " mình",
+      "start": 2.03,
+      "end": 2.23,
+      "probability": 0.654
+    },
+    {
+      "word": " không",
+      "start": 2.23,
+      "end": 2.45,
+      "probability": 0.987
+    },
+    {
+      "word": " thể",
+      "start": 2.45,
+      "end": 2.61,
+      "probability": 0.958
+    },
+    {
+      "word": " nào",
+      "start": 2.61,
+      "end": 2.81,
+      "probability": 0.828
+    },
+    {
+      "word": " tạo",
+      "start": 2.81,
+      "end": 3.03,
+      "probability": 0.968
+    },
+    {
+      "word": " được",
+      "start": 3.03,
+      "end": 3.17,
+      "probability": 0.992
+    },
+    {
+      "word": " chất",
+      "start": 3.17,
+      "end": 3.33,
+      "probability": 0.679
+    },
+    {
+      "word": " bót",
+      "start": 3.33,
+      "end": 3.47,
+      "probability": 0.593
+    },
+    {
+      "word": " AI",
+      "start": 3.47,
+      "end": 3.73,
+      "probability": 0.752
+    },
+    {
+      "word": " bán",
+      "start": 3.73,
+      "end": 3.97,
+      "probability": 0.916
+    },
+    {
+      "word": " hàng",
+      "start": 3.97,
+      "end": 4.21,
+      "probability": 0.992
+    },
+    {
+      "word": " từ",
+      "start": 4.21,
+      "end": 4.77,
+      "probability": 0.724
+    },
+    {
+      "word": " đảm",
+      "start": 4.77,
+      "end": 4.99,
+      "probability": 0.83
+    },
+    {
+      "word": " đúng",
+      "start": 4.99,
+      "end": 5.15,
+      "probability": 0.861
+    },
+    {
+      "word": " ý",
+      "start": 5.15,
+      "end": 5.27,
+      "probability": 0.966
+    },
+    {
+      "word": " mình",
+      "start": 5.27,
+      "end": 5.45,
+      "probability": 0.979
+    },
+    {
+      "word": " được",
+      "start": 5.45,
+      "end": 5.59,
+      "probability": 0.957
+    },
+    {
+      "word": " Thứ",
+      "start": 5.59,
+      "end": 6.27,
+      "probability": 0.792
+    },
+    {
+      "word": " nhất,",
+      "start": 6.27,
+      "end": 6.45,
+      "probability": 0.955
+    },
+    {
+      "word": " đó",
+      "start": 6.79,
+      "end": 6.85,
+      "probability": 0.885
+    },
+    {
+      "word": " là",
+      "start": 6.85,
+      "end": 7.01,
+      "probability": 0.991
+    },
+    {
+      "word": " có",
+      "start": 7.01,
+      "end": 7.23,
+      "probability": 0.988
+    },
+    {
+      "word": " thông",
+      "start": 7.23,
+      "end": 7.41,
+      "probability": 0.989
+    },
+    {
+      "word": " tin",
+      "start": 7.41,
+      "end": 7.53,
+      "probability": 0.99
+    },
+    {
+      "word": " gì,",
+      "start": 7.53,
+      "end": 7.77,
+      "probability": 0.994
+    },
+    {
+      "word": " thì",
+      "start": 7.95,
+      "end": 8.25,
+      "probability": 0.914
+    },
+    {
+      "word": " anh",
+      "start": 8.25,
+      "end": 8.39,
+      "probability": 0.986
+    },
+    {
+      "word": " em",
+      "start": 8.39,
+      "end": 8.49,
+      "probability": 0.998
+    },
+    {
+      "word": " cũng",
+      "start": 8.49,
+      "end": 8.67,
+      "probability": 0.965
+    },
+    {
+      "word": " đều",
+      "start": 8.67,
+      "end": 8.85,
+      "probability": 0.788
+    },
+    {
+      "word": " quen",
+      "start": 8.85,
+      "end": 9.03,
+      "probability": 0.835
+    },
+    {
+      "word": " hết",
+      "start": 9.03,
+      "end": 9.17,
+      "probability": 0.988
+    },
+    {
+      "word": " vào",
+      "start": 9.17,
+      "end": 9.35,
+      "probability": 0.979
+    },
+    {
+      "word": " cho",
+      "start": 9.35,
+      "end": 9.51,
+      "probability": 0.983
+    },
+    {
+      "word": " AI",
+      "start": 9.51,
+      "end": 9.79,
+      "probability": 0.965
+    },
+    {
+      "word": " để",
+      "start": 9.79,
+      "end": 10.03,
+      "probability": 0.953
+    },
+    {
+      "word": " nó",
+      "start": 10.03,
+      "end": 10.15,
+      "probability": 0.77
+    },
+    {
+      "word": " tự",
+      "start": 10.15,
+      "end": 10.33,
+      "probability": 0.948
+    },
+    {
+      "word": " xử",
+      "start": 10.33,
+      "end": 10.51,
+      "probability": 0.619
+    },
+    {
+      "word": " lý",
+      "start": 10.51,
+      "end": 10.73,
+      "probability": 0.981
+    },
+    {
+      "word": " Như",
+      "start": 10.73,
+      "end": 11.31,
+      "probability": 0.901
+    },
+    {
+      "word": " vậy",
+      "start": 11.31,
+      "end": 11.45,
+      "probability": 0.995
+    },
+    {
+      "word": " thì",
+      "start": 11.45,
+      "end": 11.67,
+      "probability": 0.876
+    },
+    {
+      "word": " không",
+      "start": 11.67,
+      "end": 12.17,
+      "probability": 0.478
+    },
+    {
+      "word": " đúng",
+      "start": 12.17,
+      "end": 12.39,
+      "probability": 0.978
+    },
+    {
+      "word": " theo",
+      "start": 12.39,
+      "end": 12.57,
+      "probability": 0.991
+    },
+    {
+      "word": " ngôn",
+      "start": 12.57,
+      "end": 12.77,
+      "probability": 0.894
+    },
+    {
+      "word": " ngữ",
+      "start": 12.77,
+      "end": 12.97,
+      "probability": 0.773
+    },
+    {
+      "word": " của",
+      "start": 12.97,
+      "end": 13.11,
+      "probability": 0.99
+    },
+    {
+      "word": " AI,",
+      "start": 13.11,
+      "end": 13.39,
+      "probability": 0.988
+    },
+    {
+      "word": " mình",
+      "start": 13.63,
+      "end": 13.73,
+      "probability": 0.987
+    },
+    {
+      "word": " cần",
+      "start": 13.73,
+      "end": 13.87,
+      "probability": 0.967
+    },
+    {
+      "word": " phải",
+      "start": 13.87,
+      "end": 14.03,
+      "probability": 0.978
+    },
+    {
+      "word": " lập",
+      "start": 14.03,
+      "end": 14.19,
+      "probability": 0.631
+    },
+    {
+      "word": " thông",
+      "start": 14.19,
+      "end": 14.39,
+      "probability": 0.954
+    },
+    {
+      "word": " tin",
+      "start": 14.39,
+      "end": 14.57,
+      "probability": 0.998
+    },
+    {
+      "word": " đúng",
+      "start": 14.57,
+      "end": 14.89,
+      "probability": 0.966
+    },
+    {
+      "word": " đủ",
+      "start": 14.89,
+      "end": 15.49,
+      "probability": 0.789
+    },
+    {
+      "word": " để",
+      "start": 15.49,
+      "end": 15.89,
+      "probability": 0.811
+    },
+    {
+      "word": " đưa",
+      "start": 15.89,
+      "end": 16.05,
+      "probability": 0.997
+    },
+    {
+      "word": " nó",
+      "start": 16.05,
+      "end": 16.23,
+      "probability": 0.977
+    },
+    {
+      "word": " đừng",
+      "start": 16.23,
+      "end": 16.53,
+      "probability": 0.795
+    },
+    {
+      "word": " có",
+      "start": 16.53,
+      "end": 16.67,
+      "probability": 0.877
+    },
+    {
+      "word": " đưa",
+      "start": 16.67,
+      "end": 16.81,
+      "probability": 0.995
+    },
+    {
+      "word": " quá",
+      "start": 16.81,
+      "end": 17.01,
+      "probability": 0.964
+    },
+    {
+      "word": " nhiều",
+      "start": 17.01,
+      "end": 17.25,
+      "probability": 0.995
+    },
+    {
+      "word": " hoặc",
+      "start": 17.25,
+      "end": 17.45,
+      "probability": 0.685
+    },
+    {
+      "word": " là",
+      "start": 17.45,
+      "end": 17.55,
+      "probability": 0.846
+    },
+    {
+      "word": " dư",
+      "start": 17.55,
+      "end": 17.75,
+      "probability": 0.873
+    },
+    {
+      "word": " Thứ",
+      "start": 17.75,
+      "end": 18.43,
+      "probability": 0.956
+    },
+    {
+      "word": " hai",
+      "start": 18.43,
+      "end": 18.69,
+      "probability": 0.545
+    },
+    {
+      "word": " là",
+      "start": 18.69,
+      "end": 19.23,
+      "probability": 0.819
+    },
+    {
+      "word": " anh",
+      "start": 19.23,
+      "end": 19.43,
+      "probability": 0.837
+    },
+    {
+      "word": " em",
+      "start": 19.43,
+      "end": 19.51,
+      "probability": 0.996
+    },
+    {
+      "word": " đòi",
+      "start": 19.51,
+      "end": 19.87,
+      "probability": 0.959
+    },
+    {
+      "word": " AI",
+      "start": 19.87,
+      "end": 20.17,
+      "probability": 0.733
+    },
+    {
+      "word": " nó",
+      "start": 20.17,
+      "end": 20.31,
+      "probability": 0.769
+    },
+    {
+      "word": " phải",
+      "start": 20.31,
+      "end": 20.45,
+      "probability": 0.989
+    },
+    {
+      "word": " thông",
+      "start": 20.45,
+      "end": 20.67,
+      "probability": 0.979
+    },
+    {
+      "word": " minh",
+      "start": 20.67,
+      "end": 21.27,
+      "probability": 0.914
+    },
+    {
+      "word": " giống",
+      "start": 21.27,
+      "end": 21.39,
+      "probability": 0.835
+    },
+    {
+      "word": " như",
+      "start": 21.39,
+      "end": 21.53,
+      "probability": 0.979
+    },
+    {
+      "word": " là",
+      "start": 21.53,
+      "end": 21.63,
+      "probability": 0.941
+    },
+    {
+      "word": " cậu",
+      "start": 21.63,
+      "end": 21.77,
+      "probability": 0.663
+    },
+    {
+      "word": " người",
+      "start": 21.77,
+      "end": 22.05,
+      "probability": 0.995
+    },
+    {
+      "word": " Thì",
+      "start": 22.05,
+      "end": 22.69,
+      "probability": 0.756
+    },
+    {
+      "word": " cái",
+      "start": 22.69,
+      "end": 23.71,
+      "probability": 0.263
+    },
+    {
+      "word": " việc",
+      "start": 23.71,
+      "end": 23.87,
+      "probability": 0.992
+    },
+    {
+      "word": " mà",
+      "start": 23.87,
+      "end": 24.13,
+      "probability": 0.937
+    },
+    {
+      "word": " khách",
+      "start": 24.13,
+      "end": 24.27,
+      "probability": 0.86
+    },
+    {
+      "word": " hàng",
+      "start": 24.27,
+      "end": 24.49,
+      "probability": 0.985
+    },
+    {
+      "word": " cần",
+      "start": 24.49,
+      "end": 24.67,
+      "probability": 0.475
+    },
+    {
+      "word": " trả",
+      "start": 24.67,
+      "end": 24.83,
+      "probability": 0.655
+    },
+    {
+      "word": " lời",
+      "start": 24.83,
+      "end": 25.01,
+      "probability": 0.997
+    },
+    {
+      "word": " á",
+      "start": 25.01,
+      "end": 25.19,
+      "probability": 0.499
+    },
+    {
+      "word": " thì",
+      "start": 25.19,
+      "end": 25.51,
+      "probability": 0.23
+    },
+    {
+      "word": " những",
+      "start": 25.51,
+      "end": 25.69,
+      "probability": 0.91
+    },
+    {
+      "word": " cái",
+      "start": 25.69,
+      "end": 25.83,
+      "probability": 0.463
+    },
+    {
+      "word": " câu,",
+      "start": 25.83,
+      "end": 26.07,
+      "probability": 0.884
+    },
+    {
+      "word": " những",
+      "start": 26.19,
+      "end": 26.25,
+      "probability": 0.898
+    },
+    {
+      "word": " cái",
+      "start": 26.25,
+      "end": 26.37,
+      "probability": 0.891
+    },
+    {
+      "word": " thông",
+      "start": 26.37,
+      "end": 26.49,
+      "probability": 0.998
+    },
+    {
+      "word": " tin",
+      "start": 26.49,
+      "end": 26.71,
+      "probability": 0.998
+    },
+    {
+      "word": " cơ",
+      "start": 26.71,
+      "end": 27.15,
+      "probability": 0.934
+    },
+    {
+      "word": " bản",
+      "start": 27.15,
+      "end": 27.35,
+      "probability": 0.974
+    },
+    {
+      "word": " về",
+      "start": 27.35,
+      "end": 27.53,
+      "probability": 0.692
+    },
+    {
+      "word": " sản",
+      "start": 27.53,
+      "end": 27.73,
+      "probability": 0.955
+    },
+    {
+      "word": " phẩm",
+      "start": 27.73,
+      "end": 27.93,
+      "probability": 0.996
+    },
+    {
+      "word": " về",
+      "start": 27.93,
+      "end": 28.07,
+      "probability": 0.371
+    },
+    {
+      "word": " giá",
+      "start": 28.07,
+      "end": 28.73,
+      "probability": 0.95
+    },
+    {
+      "word": " Mình",
+      "start": 28.73,
+      "end": 28.93,
+      "probability": 0.496
+    },
+    {
+      "word": " chỉ",
+      "start": 28.93,
+      "end": 29.11,
+      "probability": 0.78
+    },
+    {
+      "word": " đưa",
+      "start": 29.11,
+      "end": 29.41,
+      "probability": 0.655
+    },
+    {
+      "word": " đúng",
+      "start": 29.41,
+      "end": 29.57,
+      "probability": 0.682
+    },
+    {
+      "word": " những",
+      "start": 29.57,
+      "end": 29.69,
+      "probability": 0.356
+    },
+    {
+      "word": " cái",
+      "start": 29.69,
+      "end": 29.79,
+      "probability": 0.353
+    },
+    {
+      "word": " đó",
+      "start": 29.79,
+      "end": 29.95,
+      "probability": 0.989
+    },
+    {
+      "word": " kèm",
+      "start": 29.95,
+      "end": 30.65,
+      "probability": 0.763
+    },
+    {
+      "word": " theo",
+      "start": 30.65,
+      "end": 30.87,
+      "probability": 0.985
+    },
+    {
+      "word": " quy",
+      "start": 30.87,
+      "end": 31.37,
+      "probability": 0.445
+    },
+    {
+      "word": " trình",
+      "start": 31.37,
+      "end": 31.61,
+      "probability": 0.903
+    },
+    {
+      "word": " làm",
+      "start": 31.61,
+      "end": 31.85,
+      "probability": 0.967
+    },
+    {
+      "word": " việc",
+      "start": 31.85,
+      "end": 33.13,
+      "probability": 0.965
+    },
+    {
+      "word": " như",
+      "start": 33.13,
+      "end": 33.25,
+      "probability": 0.779
+    },
+    {
+      "word": " thế",
+      "start": 33.25,
+      "end": 33.35,
+      "probability": 0.999
+    },
+    {
+      "word": " nào",
+      "start": 33.35,
+      "end": 33.57,
+      "probability": 0.994
+    },
+    {
+      "word": " Tư",
+      "start": 33.57,
+      "end": 34.23,
+      "probability": 0.171
+    },
+    {
+      "word": " vấn",
+      "start": 34.23,
+      "end": 34.37,
+      "probability": 0.637
+    },
+    {
+      "word": " như",
+      "start": 34.37,
+      "end": 34.51,
+      "probability": 0.82
+    },
+    {
+      "word": " thế",
+      "start": 34.51,
+      "end": 34.61,
+      "probability": 0.999
+    },
+    {
+      "word": " nào",
+      "start": 34.61,
+      "end": 34.89,
+      "probability": 0.998
+    },
+    {
+      "word": " và",
+      "start": 34.89,
+      "end": 35.05,
+      "probability": 0.375
+    },
+    {
+      "word": " những",
+      "start": 35.05,
+      "end": 35.23,
+      "probability": 0.743
+    },
+    {
+      "word": " câu",
+      "start": 35.23,
+      "end": 35.57,
+      "probability": 0.989
+    },
+    {
+      "word": " mẫu",
+      "start": 35.57,
+      "end": 35.89,
+      "probability": 0.834
+    },
+    {
+      "word": " ví",
+      "start": 35.89,
+      "end": 36.11,
+      "probability": 0.201
+    },
+    {
+      "word": " dụ",
+      "start": 36.11,
+      "end": 36.37,
+      "probability": 0.926
+    },
+    {
+      "word": " về",
+      "start": 36.37,
+      "end": 36.69,
+      "probability": 0.878
+    },
+    {
+      "word": " phong",
+      "start": 36.69,
+      "end": 36.87,
+      "probability": 0.973
+    },
+    {
+      "word": " cách",
+      "start": 36.87,
+      "end": 37.01,
+      "probability": 0.967
+    },
+    {
+      "word": " trả",
+      "start": 37.01,
+      "end": 37.15,
+      "probability": 0.513
+    },
+    {
+      "word": " lời,",
+      "start": 37.15,
+      "end": 37.31,
+      "probability": 0.988
+    },
+    {
+      "word": " nó",
+      "start": 37.43,
+      "end": 37.83,
+      "probability": 0.919
+    },
+    {
+      "word": " sẽ",
+      "start": 37.83,
+      "end": 37.99,
+      "probability": 0.965
+    },
+    {
+      "word": " tự",
+      "start": 37.99,
+      "end": 38.13,
+      "probability": 0.854
+    },
+    {
+      "word": " động",
+      "start": 38.13,
+      "end": 38.27,
+      "probability": 0.718
+    },
+    {
+      "word": " làm",
+      "start": 38.27,
+      "end": 38.39,
+      "probability": 0.988
+    },
+    {
+      "word": " việc",
+      "start": 38.39,
+      "end": 38.53,
+      "probability": 0.957
+    },
+    {
+      "word": " được",
+      "start": 38.53,
+      "end": 38.65,
+      "probability": 0.854
+    },
+    {
+      "word": " Và",
+      "start": 38.65,
+      "end": 39.27,
+      "probability": 0.275
+    },
+    {
+      "word": " thứ",
+      "start": 39.27,
+      "end": 39.41,
+      "probability": 0.979
+    },
+    {
+      "word": " ba",
+      "start": 39.41,
+      "end": 39.65,
+      "probability": 0.615
+    },
+    {
+      "word": " là",
+      "start": 39.65,
+      "end": 39.93,
+      "probability": 0.975
+    },
+    {
+      "word": " anh",
+      "start": 39.93,
+      "end": 40.45,
+      "probability": 0.544
+    },
+    {
+      "word": " em",
+      "start": 40.45,
+      "end": 40.57,
+      "probability": 0.993
+    },
+    {
+      "word": " không",
+      "start": 40.57,
+      "end": 40.79,
+      "probability": 0.993
+    },
+    {
+      "word": " chịu",
+      "start": 40.79,
+      "end": 41.07,
+      "probability": 0.744
+    },
+    {
+      "word": " tết,",
+      "start": 41.07,
+      "end": 41.29,
+      "probability": 0.461
+    },
+    {
+      "word": " cái",
+      "start": 41.51,
+      "end": 41.85,
+      "probability": 0.911
+    },
+    {
+      "word": " gì",
+      "start": 41.85,
+      "end": 42.03,
+      "probability": 0.999
+    },
+    {
+      "word": " cũng",
+      "start": 42.03,
+      "end": 42.17,
+      "probability": 0.958
+    },
+    {
+      "word": " quanh",
+      "start": 42.17,
+      "end": 42.43,
+      "probability": 0.872
+    },
+    {
+      "word": " AI",
+      "start": 42.43,
+      "end": 42.59,
+      "probability": 0.822
+    },
+    {
+      "word": " rồi",
+      "start": 42.59,
+      "end": 42.75,
+      "probability": 0.411
+    },
+    {
+      "word": " nó",
+      "start": 42.75,
+      "end": 42.89,
+      "probability": 0.5
+    },
+    {
+      "word": " tự",
+      "start": 42.89,
+      "end": 43.03,
+      "probability": 0.933
+    },
+    {
+      "word": " xử",
+      "start": 43.03,
+      "end": 43.17,
+      "probability": 0.755
+    },
+    {
+      "word": " lý",
+      "start": 43.17,
+      "end": 43.31,
+      "probability": 0.996
+    },
+    {
+      "word": " Như",
+      "start": 43.31,
+      "end": 43.63,
+      "probability": 0.559
+    },
+    {
+      "word": " vậy",
+      "start": 43.63,
+      "end": 43.73,
+      "probability": 0.65
+    },
+    {
+      "word": " thì",
+      "start": 43.73,
+      "end": 43.87,
+      "probability": 0.94
+    },
+    {
+      "word": " AI",
+      "start": 43.87,
+      "end": 44.37,
+      "probability": 0.807
+    },
+    {
+      "word": " nó",
+      "start": 44.37,
+      "end": 44.59,
+      "probability": 0.556
+    },
+    {
+      "word": " không",
+      "start": 44.59,
+      "end": 44.77,
+      "probability": 0.989
+    },
+    {
+      "word": " đủ",
+      "start": 44.77,
+      "end": 44.97,
+      "probability": 0.851
+    },
+    {
+      "word": " thông",
+      "start": 44.97,
+      "end": 45.17,
+      "probability": 0.521
+    },
+    {
+      "word": " minh",
+      "start": 45.17,
+      "end": 45.41,
+      "probability": 0.988
+    },
+    {
+      "word": " để",
+      "start": 45.41,
+      "end": 45.49,
+      "probability": 0.962
+    },
+    {
+      "word": " tự",
+      "start": 45.49,
+      "end": 45.75,
+      "probability": 0.825
+    },
+    {
+      "word": " xử",
+      "start": 45.75,
+      "end": 45.93,
+      "probability": 0.989
+    },
+    {
+      "word": " lý",
+      "start": 45.93,
+      "end": 46.07,
+      "probability": 0.998
+    },
+    {
+      "word": " đâu",
+      "start": 46.07,
+      "end": 46.23,
+      "probability": 0.046
+    },
+    {
+      "word": " Bản",
+      "start": 46.23,
+      "end": 46.83,
+      "probability": 0.685
+    },
+    {
+      "word": " chắc",
+      "start": 46.83,
+      "end": 46.99,
+      "probability": 0.885
+    },
+    {
+      "word": " AI",
+      "start": 46.99,
+      "end": 47.25,
+      "probability": 0.966
+    },
+    {
+      "word": " nó",
+      "start": 47.25,
+      "end": 47.39,
+      "probability": 0.525
+    },
+    {
+      "word": " là",
+      "start": 47.39,
+      "end": 47.57,
+      "probability": 0.871
+    },
+    {
+      "word": " xin",
+      "start": 47.57,
+      "end": 48.05,
+      "probability": 0.569
+    },
+    {
+      "word": " tự,",
+      "start": 48.05,
+      "end": 48.33,
+      "probability": 0.738
+    },
+    {
+      "word": " anh",
+      "start": 48.83,
+      "end": 48.97,
+      "probability": 0.983
+    },
+    {
+      "word": " em",
+      "start": 48.97,
+      "end": 49.17,
+      "probability": 0.995
+    },
+    {
+      "word": " đưa",
+      "start": 49.17,
+      "end": 49.51,
+      "probability": 0.995
+    },
+    {
+      "word": " cái",
+      "start": 49.51,
+      "end": 49.73,
+      "probability": 0.586
+    },
+    {
+      "word": " thông",
+      "start": 49.73,
+      "end": 49.97,
+      "probability": 0.977
+    },
+    {
+      "word": " tin",
+      "start": 49.97,
+      "end": 50.13,
+      "probability": 0.844
+    },
+    {
+      "word": " nào",
+      "start": 50.13,
+      "end": 50.33,
+      "probability": 0.965
+    },
+    {
+      "word": " nhìn",
+      "start": 50.33,
+      "end": 50.53,
+      "probability": 0.738
+    },
+    {
+      "word": " nhé,",
+      "start": 50.53,
+      "end": 50.79,
+      "probability": 0.704
+    },
+    {
+      "word": " nó",
+      "start": 50.87,
+      "end": 50.99,
+      "probability": 0.932
+    },
+    {
+      "word": " sẽ",
+      "start": 50.99,
+      "end": 51.15,
+      "probability": 0.985
+    },
+    {
+      "word": " tự",
+      "start": 51.15,
+      "end": 51.33,
+      "probability": 0.976
+    },
+    {
+      "word": " xử",
+      "start": 51.33,
+      "end": 51.53,
+      "probability": 0.994
+    },
+    {
+      "word": " lý",
+      "start": 51.53,
+      "end": 51.65,
+      "probability": 0.999
+    },
+    {
+      "word": " theo",
+      "start": 51.65,
+      "end": 51.81,
+      "probability": 0.978
+    },
+    {
+      "word": " những",
+      "start": 51.81,
+      "end": 51.93,
+      "probability": 0.851
+    },
+    {
+      "word": " cái",
+      "start": 51.93,
+      "end": 52.01,
+      "probability": 0.24
+    },
+    {
+      "word": " thông",
+      "start": 52.01,
+      "end": 52.15,
+      "probability": 0.988
+    },
+    {
+      "word": " tin",
+      "start": 52.15,
+      "end": 52.27,
+      "probability": 0.998
+    },
+    {
+      "word": " đó",
+      "start": 52.27,
+      "end": 52.47,
+      "probability": 0.987
+    },
+    {
+      "word": " Cho",
+      "start": 52.47,
+      "end": 53.13,
+      "probability": 0.862
+    },
+    {
+      "word": " nên",
+      "start": 53.13,
+      "end": 53.29,
+      "probability": 0.999
+    },
+    {
+      "word": " là",
+      "start": 53.29,
+      "end": 53.49,
+      "probability": 0.954
+    },
+    {
+      "word": " cái",
+      "start": 53.49,
+      "end": 53.83,
+      "probability": 0.307
+    },
+    {
+      "word": " việc",
+      "start": 53.83,
+      "end": 53.97,
+      "probability": 0.998
+    },
+    {
+      "word": " quan",
+      "start": 53.97,
+      "end": 54.19,
+      "probability": 0.942
+    },
+    {
+      "word": " trọng",
+      "start": 54.19,
+      "end": 54.47,
+      "probability": 0.997
+    },
+    {
+      "word": " để",
+      "start": 54.47,
+      "end": 54.69,
+      "probability": 0.983
+    },
+    {
+      "word": " chất",
+      "start": 54.69,
+      "end": 54.89,
+      "probability": 0.449
+    },
+    {
+      "word": " bót",
+      "start": 54.89,
+      "end": 55.01,
+      "probability": 0.451
+    },
+    {
+      "word": " AI",
+      "start": 55.01,
+      "end": 55.27,
+      "probability": 0.978
+    },
+    {
+      "word": " nó",
+      "start": 55.27,
+      "end": 55.47,
+      "probability": 0.418
+    },
+    {
+      "word": " có",
+      "start": 55.47,
+      "end": 55.59,
+      "probability": 0.85
+    },
+    {
+      "word": " thể",
+      "start": 55.59,
+      "end": 55.73,
+      "probability": 0.996
+    },
+    {
+      "word": " hợp",
+      "start": 55.73,
+      "end": 55.99,
+      "probability": 0.75
+    },
+    {
+      "word": " động",
+      "start": 55.99,
+      "end": 56.17,
+      "probability": 0.364
+    },
+    {
+      "word": " được",
+      "start": 56.17,
+      "end": 56.35,
+      "probability": 0.969
+    },
+    {
+      "word": " theo",
+      "start": 56.35,
+      "end": 56.53,
+      "probability": 0.985
+    },
+    {
+      "word": " đúng",
+      "start": 56.53,
+      "end": 56.69,
+      "probability": 0.977
+    },
+    {
+      "word": " ý",
+      "start": 56.69,
+      "end": 56.81,
+      "probability": 0.926
+    },
+    {
+      "word": " mình",
+      "start": 56.81,
+      "end": 56.99,
+      "probability": 0.993
+    },
+    {
+      "word": " Thì",
+      "start": 56.99,
+      "end": 57.55,
+      "probability": 0.263
+    },
+    {
+      "word": " anh",
+      "start": 57.55,
+      "end": 57.77,
+      "probability": 0.896
+    },
+    {
+      "word": " em",
+      "start": 57.77,
+      "end": 57.87,
+      "probability": 0.981
+    },
+    {
+      "word": " mình",
+      "start": 57.87,
+      "end": 57.99,
+      "probability": 0.79
+    },
+    {
+      "word": " không",
+      "start": 57.99,
+      "end": 58.13,
+      "probability": 0.073
+    },
+    {
+      "word": " phải",
+      "start": 58.13,
+      "end": 58.39,
+      "probability": 0.996
+    },
+    {
+      "word": " đưa",
+      "start": 58.39,
+      "end": 58.79,
+      "probability": 0.933
+    },
+    {
+      "word": " đúng",
+      "start": 58.79,
+      "end": 58.93,
+      "probability": 0.833
+    },
+    {
+      "word": " quy",
+      "start": 58.93,
+      "end": 59.07,
+      "probability": 0.479
+    },
+    {
+      "word": " trình",
+      "start": 59.07,
+      "end": 59.27,
+      "probability": 0.946
+    },
+    {
+      "word": " này,",
+      "start": 59.27,
+      "end": 59.49,
+      "probability": 0.748
+    },
+    {
+      "word": " đưa",
+      "start": 59.83,
+      "end": 60.01,
+      "probability": 0.953
+    },
+    {
+      "word": " đủ",
+      "start": 60.01,
+      "end": 60.65,
+      "probability": 0.95
+    },
+    {
+      "word": " những",
+      "start": 60.65,
+      "end": 60.81,
+      "probability": 0.923
+    },
+    {
+      "word": " cái",
+      "start": 60.81,
+      "end": 60.93,
+      "probability": 0.202
+    },
+    {
+      "word": " thông",
+      "start": 60.93,
+      "end": 61.03,
+      "probability": 0.948
+    },
+    {
+      "word": " tin",
+      "start": 61.03,
+      "end": 61.15,
+      "probability": 0.927
+    },
+    {
+      "word": " thôi",
+      "start": 61.15,
+      "end": 61.33,
+      "probability": 0.861
+    },
+    {
+      "word": " Đừng",
+      "start": 61.33,
+      "end": 61.67,
+      "probability": 0.598
+    },
+    {
+      "word": " có",
+      "start": 61.67,
+      "end": 61.75,
+      "probability": 0.954
+    },
+    {
+      "word": " đưa",
+      "start": 61.75,
+      "end": 61.85,
+      "probability": 0.926
+    },
+    {
+      "word": " dư,",
+      "start": 61.85,
+      "end": 62.03,
+      "probability": 0.787
+    },
+    {
+      "word": " đừng",
+      "start": 62.39,
+      "end": 62.63,
+      "probability": 0.897
+    },
+    {
+      "word": " có",
+      "start": 62.63,
+      "end": 62.77,
+      "probability": 0.99
+    },
+    {
+      "word": " đưa",
+      "start": 62.77,
+      "end": 62.89,
+      "probability": 0.996
+    },
+    {
+      "word": " những",
+      "start": 62.89,
+      "end": 63.05,
+      "probability": 0.966
+    },
+    {
+      "word": " cái",
+      "start": 63.05,
+      "end": 63.21,
+      "probability": 0.86
+    },
+    {
+      "word": " thông",
+      "start": 63.21,
+      "end": 63.35,
+      "probability": 0.969
+    },
+    {
+      "word": " tin",
+      "start": 63.35,
+      "end": 63.55,
+      "probability": 0.995
+    },
+    {
+      "word": " mà",
+      "start": 63.55,
+      "end": 63.79,
+      "probability": 0.446
+    },
+    {
+      "word": " làm",
+      "start": 63.79,
+      "end": 64.41,
+      "probability": 0.981
+    },
+    {
+      "word": " cho",
+      "start": 64.41,
+      "end": 64.59,
+      "probability": 0.879
+    },
+    {
+      "word": " AI",
+      "start": 64.59,
+      "end": 64.81,
+      "probability": 0.899
+    },
+    {
+      "word": " nó",
+      "start": 64.81,
+      "end": 64.99,
+      "probability": 0.472
+    },
+    {
+      "word": " bị",
+      "start": 64.99,
+      "end": 65.17,
+      "probability": 0.993
+    },
+    {
+      "word": " sang",
+      "start": 65.17,
+      "end": 66.47,
+      "probability": 0.262
+    },
+    {
+      "word": " nhãn",
+      "start": 66.47,
+      "end": 66.77,
+      "probability": 0.698
+    },
+    {
+      "word": " đi",
+      "start": 66.77,
+      "end": 66.85,
+      "probability": 0.922
+    },
+    {
+      "word": " Rồi",
+      "start": 66.85,
+      "end": 67.55,
+      "probability": 0.894
+    },
+    {
+      "word": " thứ",
+      "start": 67.55,
+      "end": 67.73,
+      "probability": 0.63
+    },
+    {
+      "word": " ba",
+      "start": 67.73,
+      "end": 67.95,
+      "probability": 0.525
+    },
+    {
+      "word": " là",
+      "start": 67.95,
+      "end": 68.07,
+      "probability": 0.967
+    },
+    {
+      "word": " mình",
+      "start": 68.07,
+      "end": 68.19,
+      "probability": 0.948
+    },
+    {
+      "word": " phải",
+      "start": 68.19,
+      "end": 68.33,
+      "probability": 0.992
+    },
+    {
+      "word": " test",
+      "start": 68.33,
+      "end": 68.55,
+      "probability": 0.629
+    },
+    {
+      "word": " và",
+      "start": 68.55,
+      "end": 68.81,
+      "probability": 0.831
+    },
+    {
+      "word": " kiểm",
+      "start": 68.81,
+      "end": 68.97,
+      "probability": 0.925
+    },
+    {
+      "word": " tra",
+      "start": 68.97,
+      "end": 69.11,
+      "probability": 0.994
+    },
+    {
+      "word": " liên",
+      "start": 69.11,
+      "end": 69.27,
+      "probability": 0.974
+    },
+    {
+      "word": " tục,",
+      "start": 69.27,
+      "end": 69.43,
+      "probability": 0.927
+    },
+    {
+      "word": " mình",
+      "start": 69.55,
+      "end": 69.75,
+      "probability": 0.939
+    },
+    {
+      "word": " theo",
+      "start": 69.75,
+      "end": 69.89,
+      "probability": 0.988
+    },
+    {
+      "word": " dõi",
+      "start": 69.89,
+      "end": 70.15,
+      "probability": 0.994
+    },
+    {
+      "word": " rồi",
+      "start": 70.15,
+      "end": 70.31,
+      "probability": 0.705
+    },
+    {
+      "word": " mình",
+      "start": 70.31,
+      "end": 70.41,
+      "probability": 0.601
+    },
+    {
+      "word": " update",
+      "start": 70.41,
+      "end": 70.59,
+      "probability": 0.813
+    },
+    {
+      "word": " Thì",
+      "start": 70.59,
+      "end": 71.27,
+      "probability": 0.764
+    },
+    {
+      "word": " dần",
+      "start": 71.27,
+      "end": 71.51,
+      "probability": 0.933
+    },
+    {
+      "word": " dần",
+      "start": 71.51,
+      "end": 71.69,
+      "probability": 0.74
+    },
+    {
+      "word": " mình",
+      "start": 71.69,
+      "end": 71.89,
+      "probability": 0.982
+    },
+    {
+      "word": " sẽ",
+      "start": 71.89,
+      "end": 72.13,
+      "probability": 0.996
+    },
+    {
+      "word": " có",
+      "start": 72.13,
+      "end": 72.37,
+      "probability": 0.999
+    },
+    {
+      "word": " AI",
+      "start": 72.37,
+      "end": 73.03,
+      "probability": 0.984
+    },
+    {
+      "word": " thông",
+      "start": 73.03,
+      "end": 73.33,
+      "probability": 0.974
+    },
+    {
+      "word": " minh",
+      "start": 73.33,
+      "end": 74.09,
+      "probability": 0.745
+    },
+    {
+      "word": " và",
+      "start": 74.09,
+      "end": 74.23,
+      "probability": 0.114
+    },
+    {
+      "word": " khách",
+      "start": 74.23,
+      "end": 74.79,
+      "probability": 0.854
+    },
+    {
+      "word": " hàng",
+      "start": 74.79,
+      "end": 75.09,
+      "probability": 0.98
+    },
+    {
+      "word": " họ",
+      "start": 75.09,
+      "end": 75.33,
+      "probability": 0.961
+    },
+    {
+      "word": " chỉ",
+      "start": 75.33,
+      "end": 75.57,
+      "probability": 0.997
+    },
+    {
+      "word": " cần",
+      "start": 75.57,
+      "end": 75.71,
+      "probability": 0.871
+    },
+    {
+      "word": " trả",
+      "start": 75.71,
+      "end": 75.89,
+      "probability": 0.891
+    },
+    {
+      "word": " lời",
+      "start": 75.89,
+      "end": 76.03,
+      "probability": 0.97
+    },
+    {
+      "word": " đúng",
+      "start": 76.03,
+      "end": 76.23,
+      "probability": 0.962
+    },
+    {
+      "word": " những",
+      "start": 76.23,
+      "end": 76.49,
+      "probability": 0.832
+    },
+    {
+      "word": " cái",
+      "start": 76.49,
+      "end": 76.61,
+      "probability": 0.904
+    },
+    {
+      "word": " thông",
+      "start": 76.61,
+      "end": 76.75,
+      "probability": 0.944
+    },
+    {
+      "word": " tin",
+      "start": 76.75,
+      "end": 76.95,
+      "probability": 0.995
+    },
+    {
+      "word": " Những",
+      "start": 76.95,
+      "end": 77.21,
+      "probability": 0.202
+    },
+    {
+      "word": " cái",
+      "start": 77.21,
+      "end": 77.95,
+      "probability": 0.962
+    },
+    {
+      "word": " mà",
+      "start": 77.95,
+      "end": 78.71,
+      "probability": 0.708
+    },
+    {
+      "word": " họ",
+      "start": 78.71,
+      "end": 78.91,
+      "probability": 0.957
+    },
+    {
+      "word": " muốn",
+      "start": 78.91,
+      "end": 79.13,
+      "probability": 0.982
+    },
+    {
+      "word": " thôi,",
+      "start": 79.13,
+      "end": 79.35,
+      "probability": 0.226
+    },
+    {
+      "word": " như",
+      "start": 79.51,
+      "end": 79.93,
+      "probability": 0.834
+    },
+    {
+      "word": " là",
+      "start": 79.93,
+      "end": 80.09,
+      "probability": 0.947
+    },
+    {
+      "word": " họ",
+      "start": 80.09,
+      "end": 80.23,
+      "probability": 0.982
+    },
+    {
+      "word": " muốn",
+      "start": 80.23,
+      "end": 80.39,
+      "probability": 0.988
+    },
+    {
+      "word": " hỏi",
+      "start": 80.39,
+      "end": 80.57,
+      "probability": 0.924
+    },
+    {
+      "word": " về",
+      "start": 80.57,
+      "end": 80.75,
+      "probability": 0.891
+    },
+    {
+      "word": " giá,",
+      "start": 80.75,
+      "end": 81.07,
+      "probability": 0.968
+    },
+    {
+      "word": " họ",
+      "start": 81.61,
+      "end": 81.65,
+      "probability": 0.955
+    },
+    {
+      "word": " muốn",
+      "start": 81.65,
+      "end": 81.75,
+      "probability": 0.995
+    },
+    {
+      "word": " hỏi",
+      "start": 81.75,
+      "end": 81.97,
+      "probability": 0.992
+    },
+    {
+      "word": " về",
+      "start": 81.97,
+      "end": 82.17,
+      "probability": 0.983
+    },
+    {
+      "word": " cái",
+      "start": 82.17,
+      "end": 82.29,
+      "probability": 0.659
+    },
+    {
+      "word": " thông",
+      "start": 82.29,
+      "end": 82.43,
+      "probability": 0.989
+    },
+    {
+      "word": " tin",
+      "start": 82.43,
+      "end": 82.59,
+      "probability": 0.988
+    },
+    {
+      "word": " sản",
+      "start": 82.59,
+      "end": 82.81,
+      "probability": 0.949
+    },
+    {
+      "word": " phẩm",
+      "start": 82.81,
+      "end": 83.09,
+      "probability": 0.996
+    },
+    {
+      "word": " Chỉ",
+      "start": 83.09,
+      "end": 83.33,
+      "probability": 0.229
+    },
+    {
+      "word": " biết",
+      "start": 83.33,
+      "end": 83.45,
+      "probability": 0.118
+    },
+    {
+      "word": " họ",
+      "start": 83.45,
+      "end": 83.57,
+      "probability": 0.037
+    },
+    {
+      "word": " như",
+      "start": 83.57,
+      "end": 83.65,
+      "probability": 0.917
+    },
+    {
+      "word": " thế",
+      "start": 83.65,
+      "end": 83.77,
+      "probability": 0.996
+    },
+    {
+      "word": " nào",
+      "start": 83.77,
+      "end": 84.01,
+      "probability": 0.969
+    },
+    {
+      "word": " thì",
+      "start": 84.01,
+      "end": 84.45,
+      "probability": 0.534
+    },
+    {
+      "word": " mình",
+      "start": 84.45,
+      "end": 84.59,
+      "probability": 0.925
+    },
+    {
+      "word": " chỉ",
+      "start": 84.59,
+      "end": 84.73,
+      "probability": 0.851
+    },
+    {
+      "word": " cần",
+      "start": 84.73,
+      "end": 84.85,
+      "probability": 0.214
+    },
+    {
+      "word": " tư",
+      "start": 84.85,
+      "end": 84.99,
+      "probability": 0.938
+    },
+    {
+      "word": " vắng",
+      "start": 84.99,
+      "end": 85.17,
+      "probability": 0.748
+    },
+    {
+      "word": " đúng",
+      "start": 85.17,
+      "end": 85.43,
+      "probability": 0.276
+    },
+    {
+      "word": " những",
+      "start": 85.43,
+      "end": 85.67,
+      "probability": 0.303
+    },
+    {
+      "word": " cái",
+      "start": 85.67,
+      "end": 85.77,
+      "probability": 0.769
+    },
+    {
+      "word": " đó",
+      "start": 85.77,
+      "end": 85.89,
+      "probability": 0.956
+    },
+    {
+      "word": " là",
+      "start": 85.89,
+      "end": 86.55,
+      "probability": 0.895
+    },
+    {
+      "word": " đã",
+      "start": 86.55,
+      "end": 86.77,
+      "probability": 0.896
+    },
+    {
+      "word": " được",
+      "start": 86.77,
+      "end": 86.85,
+      "probability": 0.984
+    },
+    {
+      "word": " rồi",
+      "start": 86.85,
+      "end": 87.13,
+      "probability": 0.996
+    },
+    {
+      "word": " Nên",
+      "start": 87.13,
+      "end": 87.69,
+      "probability": 0.534
+    },
+    {
+      "word": " là",
+      "start": 87.69,
+      "end": 87.79,
+      "probability": 0.956
+    },
+    {
+      "word": " đừng",
+      "start": 87.79,
+      "end": 88.03,
+      "probability": 0.988
+    },
+    {
+      "word": " cho",
+      "start": 88.03,
+      "end": 88.87,
+      "probability": 0.823
+    },
+    {
+      "word": " AI",
+      "start": 88.87,
+      "end": 89.11,
+      "probability": 0.0
+    },
+    {
+      "word": " nó",
+      "start": 89.11,
+      "end": 89.29,
+      "probability": 0.735
+    },
+    {
+      "word": " quá",
+      "start": 89.29,
+      "end": 89.41,
+      "probability": 0.931
+    },
+    {
+      "word": " thông",
+      "start": 89.41,
+      "end": 89.61,
+      "probability": 0.499
+    },
+    {
+      "word": " minh",
+      "start": 89.61,
+      "end": 89.87,
+      "probability": 0.986
+    },
+    {
+      "word": " để",
+      "start": 89.87,
+      "end": 89.93,
+      "probability": 0.975
+    },
+    {
+      "word": " nó",
+      "start": 89.93,
+      "end": 90.05,
+      "probability": 0.952
+    },
+    {
+      "word": " có",
+      "start": 90.05,
+      "end": 90.21,
+      "probability": 0.868
+    },
+    {
+      "word": " thể",
+      "start": 90.21,
+      "end": 90.33,
+      "probability": 0.999
+    },
+    {
+      "word": " hiểu",
+      "start": 90.33,
+      "end": 91.19,
+      "probability": 0.964
+    },
+    {
+      "word": " giống",
+      "start": 91.19,
+      "end": 91.35,
+      "probability": 0.56
+    },
+    {
+      "word": " cho",
+      "start": 91.35,
+      "end": 91.45,
+      "probability": 0.353
+    },
+    {
+      "word": " con",
+      "start": 91.45,
+      "end": 91.53,
+      "probability": 0.928
+    },
+    {
+      "word": " người",
+      "start": 91.53,
+      "end": 91.73,
+      "probability": 0.994
+    }
+  ],
+  "language": "vi",
+  "duration_seconds": 93.389,
+  "model_size": "small",
+  "device": "cpu"
+}

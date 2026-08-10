@@ -1,0 +1,10 @@
+{
+  "//": "The parent tsconfig includes only `src`, so the UI was never typechecked: Vite transpiles with esbuild, which strips types without checking them. This config exists so `make autoedit-ui-typecheck` can gate the UI on its own. It is separate rather than added to the parent's include because `src/Root.tsx` and `src/Explainer.tsx` carry pre-existing type errors that would mask any new UI error.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src", "vite.config.ts"]
+}

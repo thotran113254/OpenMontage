@@ -1,0 +1,29 @@
+# OpenMontage - Core Dependencies
+pyyaml>=6.0
+pydantic>=2.0
+jsonschema>=4.20
+python-dotenv>=1.0
+Pillow>=10.0
+numpy>=1.24
+requests>=2.31
+google-auth>=2.0       # service-account auth for Google TTS + Imagen (Vertex AI)
+
+# ElevenLabs: TTS, music, sound effects — and Scribe v2 speech-to-text, the
+# default ASR for the talking-head auto-editor (needs ELEVENLABS_API_KEY).
+elevenlabs>=1.0
+
+# Talking-head auto-edit job server (local web UI backend)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+
+# Cloud render (lib/cloud_render/) -- rents a Vast.ai box to offload a render.
+# Imported lazily inside vast_client.py only; safe to omit entirely if
+# cloud render (opt-in, disabled by default) is never used.
+vastai>=1.0.4,<2
+
+# Cloudflare R2 object storage (lib/r2_storage/, tools/storage/cloudflare_r2.py).
+# Imported lazily; safe to omit if R2 storage (opt-in, disabled by default) is
+# never used. >=1.36 needed for request_checksum_calculation="when_required"
+# (R2 rejects the CRC32 integrity checksum boto3 computes by default).
+boto3>=1.36
