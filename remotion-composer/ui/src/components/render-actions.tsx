@@ -1,18 +1,19 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { api, CloudPreview, CloudQueueEntry } from "../api/client";
+import { api, CloudPreview, CloudQueueEntry, RenderLocation } from "../api/client";
 import { CloudConsentModal } from "./cloud-consent-modal";
 
 /**
- * Render CTAs on job detail: local now / schedule cloud batch / cloud now.
- * Keeps the three paths visible so users never wonder "where did render go".
+ * Render CTAs on job detail: Colab TPU / this machine / Vast.ai batch or now.
+ * Keeps every path visible so users never wonder "where did render go".
  */
 export const RenderActions: React.FC<{
   jobId: string;
   busy: boolean;
   hasProps: boolean;
-  onLocalRender: (scale: number) => void;
+  colabRender: boolean;
+  onRender: (scale: number, location: RenderLocation) => void;
   onChanged?: () => void;
-}> = ({ jobId, busy, hasProps, onLocalRender, onChanged }) => {
+}> = ({ jobId, busy, hasProps, colabRender, onRender, onChanged }) => {
   const [queued, setQueued] = useState(false);
   const [entry, setEntry] = useState<CloudQueueEntry | null>(null);
   const [message, setMessage] = useState("");
@@ -117,20 +118,39 @@ export const RenderActions: React.FC<{
         <p className="muted small">Chưa có preview — chạy Cắt & xem trước trước.</p>
       )}
 
+      {colabRender && (
+        <div className="render-group">
+          <span className="render-label">Colab TPU v6e-1 — 44 CPU, máy này rảnh</span>
+          <div className="row" style={{ gap: 8 }}>
+            <button
+              className="primary"
+              disabled={disabled}
+              onClick={() => onRender(1, "colab")}
+              title="Render full trên Colab (tài khoản 1). Tự mở, render, tải về và tắt runtime."
+            >
+              Xuất MP4 trên Colab
+            </button>
+          </div>
+          <p className="muted small">
+            Khoảng 4 compute unit/giờ; runtime tự tắt khi xong. Nháp 540p vẫn render trên máy này.
+          </p>
+        </div>
+      )}
+
       <div className="render-group">
         <span className="render-label">Xuất video trên máy này</span>
         <div className="row" style={{ gap: 8 }}>
           <button
             className="primary"
             disabled={disabled}
-            onClick={() => onLocalRender(1)}
+            onClick={() => onRender(1, "local")}
             title="Xuất MP4 full trên máy này — miễn phí, vào hàng đợi. Có xác nhận trước khi chạy."
           >
             Xuất MP4 trên máy này
           </button>
           <button
             disabled={disabled}
-            onClick={() => onLocalRender(0.5)}
+            onClick={() => onRender(0.5, "local")}
             title="Bản nháp 540p nhanh hơn"
           >
             Nháp 540p

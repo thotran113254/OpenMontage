@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError, JobDetail, ProgressEvent, subscribeToJob, TimelineProps } from "../api/client";
+import {
+  api, ApiError, JobDetail, ProgressEvent, RenderLocation, subscribeToJob, TimelineProps,
+} from "../api/client";
 import { AuditPanel } from "../components/audit-panel";
 import { EventInspector } from "../components/event-inspector";
 import { LogStream } from "../components/log-stream";
@@ -41,6 +43,11 @@ export const JobDetailPage: React.FC<{ jobId: string }> = ({ jobId }) => {
   const [seekTo, setSeekTo] = useState<number>();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [colabRender, setColabRender] = useState(false);
+
+  useEffect(() => {
+    api.config().then((c) => setColabRender(Boolean(c.colab_render))).catch(() => undefined);
+  }, []);
   const [spine, setSpine] = useState<TranscriptWord[]>([]);
   const [cutRanges, setCutRanges] = useState<[number, number][]>([]);
   const [cutPending, setCutPending] = useState(false);
@@ -154,15 +161,13 @@ export const JobDetailPage: React.FC<{ jobId: string }> = ({ jobId }) => {
     }
   };
 
-  const exportLocal = (scale: number) => {
-    if (
-      !window.confirm(
-        "Xuất MP4 sẽ chạy Remotion trên máy này (có thể 10–30+ phút, chiếm CPU). Tiếp tục?",
-      )
-    ) {
-      return;
-    }
-    void api.render(jobId, scale).then(reload);
+  const exportMp4 = (scale: number, location: RenderLocation) => {
+    const question =
+      location === "colab"
+        ? "Xuất MP4 trên Colab TPU v6e-1 (44 CPU, khoảng 4 compute unit/giờ, máy này rảnh). Tiếp tục?"
+        : "Xuất MP4 sẽ chạy Remotion trên máy này (có thể 10–30+ phút, chiếm CPU). Tiếp tục?";
+    if (!window.confirm(question)) return;
+    void api.render(jobId, scale, location).then(reload);
   };
 
   const seek = (seconds: number) => {
@@ -228,8 +233,8 @@ export const JobDetailPage: React.FC<{ jobId: string }> = ({ jobId }) => {
           </a>
         )}
         {!busy && hasProps && !job.has_final && (
-          <button className="primary" onClick={() => exportLocal(1)}>
-            Xuất MP4
+          <button className="primary" onClick={() => exportMp4(1, colabRender ? "colab" : "local")}>
+            {colabRender ? "Xuất MP4 (Colab)" : "Xuất MP4"}
           </button>
         )}
         {!busy && !hasProps && (
@@ -429,7 +434,8 @@ export const JobDetailPage: React.FC<{ jobId: string }> = ({ jobId }) => {
                       jobId={jobId}
                       busy={busy}
                       hasProps={hasProps}
-                      onLocalRender={exportLocal}
+                      colabRender={colabRender}
+                      onRender={exportMp4}
                     />
                   </div>
                 </details>

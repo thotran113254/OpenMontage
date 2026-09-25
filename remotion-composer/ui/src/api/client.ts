@@ -500,7 +500,11 @@ const text = async (response: Response): Promise<string> => {
 export interface AutoeditConfig {
   director_model: string;
   gateway_configured: boolean;
+  /** Colab account 1's TPU v6e-1 can take full-size renders off this machine. */
+  colab_render?: boolean;
 }
+
+export type RenderLocation = "local" | "colab";
 
 export interface AuthStatus {
   auth_required: boolean;
@@ -542,8 +546,9 @@ export const api = {
       body: JSON.stringify(body),
     }).then(json<{ queue_position: number }>),
 
-  render: (id: string, scale = 1) =>
-    fetch(`/api/jobs/${id}/render?scale=${scale}`, { method: "POST" }).then(json<any>),
+  render: (id: string, scale = 1, location: RenderLocation = "local") =>
+    fetch(`/api/jobs/${id}/render?scale=${scale}&location=${location}`, { method: "POST" })
+      .then(json<any>),
 
   generateVisuals: (id: string) =>
     fetch(`/api/jobs/${id}/visuals`, { method: "POST" }).then(json<{ job_id: string; queue_position: number }>),
