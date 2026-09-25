@@ -439,16 +439,3 @@ class TestGradeChainPerSource:
         assert grades["s1"]["brightness"] == 0.03
         assert grades["s1"]["warmth"] == 4, "lớp __all__ vẫn áp cho nguồn có override riêng"
 
-    def test_different_sources_get_different_chains(self, tmp_path):
-        from lib.talking_head_edit.job_store import JobStore
-        from lib.talking_head_edit.stages import resolve as stage
-
-        clip = tmp_path / "a.mp4"
-        clip.write_bytes(b"0")
-        job = JobStore(tmp_path / "jobs").create(clip, {})
-        sources = [{"id": "s0", "path": str(clip), "width": 720},
-                   {"id": "s1", "path": str(clip), "width": 1080}]
-        chains, _ = stage.grade_chains_for(job, {"auto_sharpen": False}, {},
-                                          words(4), sources, (1012, 1800))
-        assert chains["s0"] != chains["s1"], \
-            "nguồn phóng to nhiều hơn phải được làm nét mạnh hơn"

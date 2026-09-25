@@ -93,3 +93,17 @@ def counting_client():
         return counter
 
     return _wrap
+
+
+# Machine settings from the repo's `.env` must not leak into tests: a real API
+# token turns every endpoint test into a 401, and a real public host changes
+# every URL a test asserts on. Set to "" rather than deleted — the `.env`
+# loaders run again at call time and only fill keys that are absent.
+_MACHINE_ENV = ("AUTOEDIT_API_TOKEN", "AUTOEDIT_PUBLIC_HOST", "AUTOEDIT_CPU_BUDGET",
+                "AUTOEDIT_NICE", "OPENMONTAGE_RENDER_MAX_CONCURRENCY")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_machine_env(monkeypatch):
+    for name in _MACHINE_ENV:
+        monkeypatch.setenv(name, "")

@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { ChatTurn, api } from "../api/client";
+import { VersionHistory } from "./version-history";
+import { outcomeGroups, humanizeTurnResult } from "../lib/outcome";
+import { OutcomeSummary } from "./outcome-summary";
+import { useStickToBottom } from "../lib/use-stick-to-bottom";
+import { ScrollToBottomPill } from "./scroll-to-bottom-pill";
 
 /**
- * Revise as a conversation. Replaces `revise-box`'s one-shot request.
+ * Revise as a conversation — the only revision workflow on the job page.
  *
  * The difference that matters is history: "bỏ card 2" then "thêm lại card đó"
  * only works if the second turn knows about the first. The server keeps the last
@@ -24,12 +29,17 @@ export const ChatPanel: React.FC<{
   jobId: string;
   busy: boolean;
   onApplied: () => void;
-}> = ({ jobId, busy, onApplied }) => {
+  embedded?: boolean;
+}> = ({ jobId, busy, onApplied, embedded }) => {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [lastDiff, setLastDiff] = useState<unknown>(null);
+  const [previewNote, setPreviewNote] = useState("");
+  const [sentSeq, setSentSeq] = useState(0);
+  const { ref: logRef, contentRef: logContentRef, pinned, pendingCount, onScroll, onKeyDown, scrollToBottom } =
+    useStickToBottom<HTMLDivElement, HTMLDivElement>(turns.length);
 
   const load = () =>
     api.chatHistory(jobId).then((data) => setTurns(data.turns)).catch(() => undefined);
@@ -38,18 +48,38 @@ export const ChatPanel: React.FC<{
     void load();
   }, [jobId, busy]);
 
+  useEffect(() => {
+    if (!busy && !pending) setPreviewNote("");
+  }, [busy, pending]);
+
+  // A message the user just sent should always land at the bottom, even if
+  // they'd scrolled up to read history — runs after `turns` re-renders so the
+  // log element exists and scrollHeight is up to date.
+  useEffect(() => {
+    if (sentSeq > 0) scrollToBottom({ smooth: true });
+  }, [sentSeq, scrollToBottom]);
+
   const send = async (dryRun: boolean) => {
     setPending(true);
     setError("");
     setLastDiff(null);
+    setPreviewNote("");
     try {
       const result = await api.chat(jobId, message, dryRun);
       setLastDiff(result.diff?.diff ?? null);
       if (!dryRun) {
         setMessage("");
+        if (result.preview_queued) {
+          setPreviewNote(
+            result.version
+              ? `Đã lưu v${result.version}. Đang cập nhật preview (cắt lại)…`
+              : "Đang cập nhật preview…",
+          );
+        }
         onApplied();
       }
       setTurns(result.history);
+      setSentSeq((n) => n + 1);
       void load();
     } catch (exception) {
       setError(String(exception).slice(0, 400));
@@ -61,28 +91,57 @@ export const ChatPanel: React.FC<{
 
   const disabled = busy || pending || message.trim().length < 4;
 
-  return (
-    <div className="card">
-      <h2>Sửa bằng hội thoại</h2>
-      <p className="muted small" style={{ marginBottom: 8 }}>
-        Ba lượt gần nhất được đưa vào ngữ cảnh, nên bạn nói “cái đó”, “như lúc trước” được.
-        AI chỉ vá đúng chỗ yêu cầu; phần đã duyệt giữ nguyên.
-      </p>
+  const body = (
+    <>
+      {!embedded && <h2>Sửa bằng hội thoại</h2>}
+      {embedded && (
+        <p className="muted small" style={{ marginTop: 0 }}>
+          Mỗi lần áp dụng tạo phiên bản mới và tự cắt lại để cập nhật preview.
+        </p>
+      )}
 
       {turns.length > 0 && (
-        <div className="log" style={{ maxHeight: 220, marginBottom: 10 }}>
-          {turns.map((turn, index) => (
-            <div key={`${turn.ts}-${index}`} style={{ marginBottom: 6 }}>
-              <span className={`badge ${turn.applied ? "running" : "pending"}`}>
-                {turn.applied ? `v${turn.to_version}` : turn.dry_run ? "thử" : "lỗi"}
-              </span>{" "}
-              <b>{turn.message}</b>
-              <div className="muted small">
-                {turn.error ? turn.error : turn.result}
-                {turn.tokens ? ` · ${turn.tokens.toLocaleString("vi-VN")} token` : ""}
-              </div>
+        <div className="scroll-pane" style={{ marginBottom: 10 }}>
+          <div
+            className="log"
+            style={{ maxHeight: 220 }}
+            ref={logRef}
+            tabIndex={0}
+            role="log"
+            aria-label="Hội thoại sửa"
+            onScroll={onScroll}
+            onKeyDown={onKeyDown}
+          >
+            <div ref={logContentRef}>
+              {turns.map((turn, index) => {
+                const groups = outcomeGroups(turn);
+                const hasStructured = groups.done.length > 0 || groups.notDone.length > 0;
+                return (
+                  <div key={`${turn.ts}-${index}`} style={{ marginBottom: 6 }}>
+                    <span className={`badge ${turn.applied ? "running" : "pending"}`}>
+                      {turn.applied ? `v${turn.to_version}` : turn.dry_run ? "thử" : "lỗi"}
+                    </span>{" "}
+                    <b>{turn.message}</b>
+                    {turn.error ? (
+                      <div className="error-text small">{turn.error}</div>
+                    ) : hasStructured ? (
+                      <OutcomeSummary {...groups} />
+                    ) : (
+                      <div className="muted small">{humanizeTurnResult(turn.result)}</div>
+                    )}
+                    {turn.tokens ? (
+                      <div className="muted small">{turn.tokens.toLocaleString("vi-VN")} token</div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          </div>
+          <ScrollToBottomPill
+            visible={!pinned}
+            count={pendingCount}
+            onClick={() => scrollToBottom({ smooth: true })}
+          />
         </div>
       )}
 
@@ -101,20 +160,29 @@ export const ChatPanel: React.FC<{
       </div>
 
       <div className="small muted" style={{ marginTop: 10 }}>
-        Gợi ý:{" "}
-        {EXAMPLES.map((example) => (
-          <button
-            key={example}
-            className="ghost small"
-            style={{ padding: "2px 8px", marginRight: 6, marginTop: 4, fontSize: 11 }}
-            onClick={() => setMessage(example)}
-          >
-            {example}
-          </button>
-        ))}
+        <details>
+          <summary>Gợi ý câu lệnh</summary>
+          <div style={{ marginTop: 6 }}>
+            {EXAMPLES.map((example) => (
+              <button
+                key={example}
+                className="ghost small"
+                style={{ padding: "2px 8px", marginRight: 6, marginTop: 4, fontSize: 11 }}
+                onClick={() => setMessage(example)}
+              >
+                {example}
+              </button>
+            ))}
+          </div>
+        </details>
       </div>
 
       {error && <p className="error-text small">{error}</p>}
+      {previewNote && (
+        <div className="callout info small" style={{ marginTop: 8 }}>
+          {previewNote}
+        </div>
+      )}
       {lastDiff !== null && (
         <>
           <h3>Thay đổi đề xuất</h3>
@@ -123,6 +191,12 @@ export const ChatPanel: React.FC<{
           </pre>
         </>
       )}
-    </div>
+
+      {embedded && (
+        <VersionHistory jobId={jobId} busy={busy || pending} onChanged={onApplied} />
+      )}
+    </>
   );
+
+  return embedded ? body : <div className="card">{body}</div>;
 };

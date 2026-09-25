@@ -16,8 +16,9 @@ import sys
 from pathlib import Path
 
 from lib.talking_head_edit.job_store import (
-    DEFAULT_OPTIONS, STAGES, JobStore, find_job, list_all_jobs,
+    DEFAULT_OPTIONS, STAGES, JobStore, find_job, list_all_jobs, merge_options,
 )
+from lib.talking_head_edit.resolve_media import AUDIO_PRESETS
 from lib.talking_head_edit.resources import inventory
 from lib.talking_head_edit.runner import run_job, stages_from
 
@@ -64,12 +65,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scale", type=float, default=1.0, help="1.0 = full 1080x1920")
     parser.add_argument("--frame", default=None,
                         choices=["none", "dark", "light", "blur"],
-                        help="Kiểu khung bao quanh footage (mặc định dark)")
-    parser.add_argument("--audio", default=None, choices=["off", "voice", "voice_strong", "shotgun", "shotgun_dry"],
+                        help="Kiểu khung bao quanh footage (mặc định none = full khung)")
+    parser.add_argument("--audio", default=None, choices=list(AUDIO_PRESETS),
                         help="Xử lý giọng (mặc định shotgun — mô phỏng mic hướng tính)")
     parser.add_argument("--no-calibrate", action="store_true",
                         help="Bỏ qua bước dò thông số, dùng thẳng mặc định")
     parser.add_argument("--no-bgm", action="store_true", help="Không dùng nhạc nền")
+    parser.add_argument("--cold-open", action="store_true",
+                        help="Ghép teaser mở màn (mặc định tắt, như UI/API)")
     parser.add_argument("--no-cold-open", action="store_true", help="Không ghép teaser mở màn")
     parser.add_argument("--revise", default="", help="Yêu cầu sửa bản dựng hiện có (vá spec)")
     parser.add_argument("--autopilot", action="store_true",
@@ -94,6 +97,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--resources", action="store_true", help="In kho SFX/BGM dùng được")
     parser.add_argument("--preview-grade", action="store_true",
                         help="Xem thử màu: 1 frame từ footage gốc qua chuỗi grade (~1 giây)")
+    parser.add_argument("--preview-compare", action="store_true",
+                        help="Xuất ảnh so sánh Before / After (GỐC vs ĐÃ CHỈNH HSL/LUT) chỉ 1-2 giây")
+    parser.add_argument("--hsl-preset", choices=["da-trang-hong", "khu-am-vang", "cinema-punchy"],
+                        default=None, help="Preset HSL màu da / màu sắc chuyên biệt")
+    parser.add_argument("--lut", default=None,
+                        help="File LUT 3D .cube hoặc tên preset: clean_bright, warm_studio, cinematic_teal_orange")
     parser.add_argument("--preview-clip", nargs="?", const=5.0, type=float, default=None,
                         metavar="GIAY",
                         help="Render clip ngắn để duyệt (mặc định 5 giây, scale 0.5)")
@@ -109,8 +118,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--check-hearing", action="store_true",
                         help="Kiểm tra MÙ: tiêm lỗi đã biết vào audio rồi xem model có "
                              "nghe ra không. Chạy trước khi tin bất kỳ đánh giá âm thanh nào")
+    parser.add_argument("--check-seeing", action="store_true",
+                        help="Kiểm tra MÙ phần NHÌN: tiêm lỗi ảnh đã biết + bắt chọn bản đẹp "
+                             "hơn (đảo vị trí). Chạy trước khi để model tự làm đẹp")
     parser.add_argument("--check-strength", type=float, default=1.0,
-                        help="Độ mạnh của lỗi tiêm vào khi --check-hearing (1.0 = rất rõ)")
+                        help="Độ mạnh của lỗi tiêm vào khi --check-hearing/--check-seeing "
+                             "(1.0 = rất rõ; ~0.3 = cỡ chỉnh màu thật của pipeline)")
     parser.add_argument("--timeline-view", nargs=2, type=float, default=None,
                         metavar=("TU_GIAY", "DEN_GIAY"),
                         help="Ảnh soi một khoảng của bản dựng: dải frame + dạng sóng "
@@ -473,6 +486,8 @@ def _run_r2_sync(job) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from lib.env_loader import load_env
+    load_env()
     args = build_parser().parse_args(argv)
 
     cloud_error = _validate_cloud_args(args)
@@ -528,7 +543,7 @@ def main(argv: list[str] | None = None) -> int:
         "tempo": args.tempo,
         "render_scale": args.scale,
         "bgm": not args.no_bgm,
-        "cold_open": not args.no_cold_open,
+        "cold_open": bool(args.cold_open) and not args.no_cold_open,
     }
     if args.model:
         options["model"] = args.model
@@ -540,7 +555,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.frame:
         options["frame_preset"] = args.frame
     if args.audio:
-        options["audio_preset"] = args.audio
+        # a preset picked by hand is not to be replaced by the room measurement
+        options.update(audio_preset=args.audio, auto_audio_preset=False)
     if args.no_calibrate:
         options["calibrate_grade"] = False
         options["calibrate_audio"] = False
@@ -553,13 +569,15 @@ def main(argv: list[str] | None = None) -> int:
         except FileNotFoundError as exc:
             print(str(exc), file=sys.stderr)
             return 2
-        # keep stored options, override only what was explicitly passed
-        stored = job.load().get("options", {})
-        passed = {k: v for k, v in options.items()
-                  if k in ("prompt", "topic", "brand_pill", "card_plan", "model",
-                           "frame_preset", "audio_preset")
-                  and v not in ("", None)}
-        options = {**stored, **passed}
+        # Keep stored options; override only flags actually given on this run.
+        # Filtering `options` instead picked up DEFAULT_OPTIONS' frame/audio and
+        # reset the user's choice on every run the server queued.
+        explicit = {key: value for key, value in {
+            "prompt": args.prompt, "topic": args.topic, "brand_pill": args.brand_pill,
+            "card_plan": args.card_plan, "model": args.model,
+            "frame_preset": args.frame, "audio_preset": args.audio,
+        }.items() if value not in ("", None)}
+        options = merge_options(job.load().get("options", {}), explicit)
     elif args.project and not (args.input or args.input_dir):
         # Build from what the project already holds — nothing to upload or probe.
         from lib.talking_head_edit.project_store import ProjectError, ProjectStore
@@ -628,7 +646,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result["diff"].get("diff"), ensure_ascii=False, indent=2)[:2000])
         if not args.dry_run:
             print(f"Phiên bản mới: v{result['version']}")
-            print("Cắt lại để xem: --stages resolve --no-cache")
+            print("Duyệt cut + cắt lại để xem: --stages audit,resolve")
         return 0
 
     if args.timeline_view:
@@ -673,9 +691,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  mối nối trong khoảng này: {inside or 'không có'}")
         return 0
 
-    if (args.preview_grade or args.preview_still is not None
+    if (args.preview_grade or args.preview_compare or args.preview_still is not None
             or args.preview_clip is not None or args.preview_audio
-            or args.judge_audio or args.check_hearing):
+            or args.judge_audio or args.check_hearing or args.check_seeing):
         from lib.talking_head_edit.preview import (
             composition_still, judge_audio, preview_audio, preview_clip, preview_grades,
         )
@@ -686,10 +704,17 @@ def main(argv: list[str] | None = None) -> int:
         if version and job.spec_path(version).exists():
             spec_grade = json.loads(job.spec_path(version).read_text(encoding="utf-8")).get("grade", {})
 
-        if args.preview_grade:
+        if args.preview_grade or args.preview_compare:
             variants = {"hien_tai": spec_grade}
+            trial = dict(spec_grade)
+            if args.hsl_preset:
+                trial["color_preset"] = args.hsl_preset
+            if args.lut:
+                trial["lut"] = args.lut
             if args.grade_json:
-                variants["thu_nghiem"] = {**spec_grade, **json.loads(args.grade_json)}
+                trial.update(json.loads(args.grade_json))
+            if trial != spec_grade or args.grade_json or args.hsl_preset or args.lut:
+                variants["thu_nghiem"] = trial
             report = preview_grades(job, variants, at_seconds=args.at, options=options)
             for item in report["variants"]:
                 stats = item["stats"]
@@ -720,11 +745,37 @@ def main(argv: list[str] | None = None) -> int:
             for row in result["chi_tiet"]:
                 print(f"  {row['loi']:<12} khi có {row['diem_khi_co']}, "
                       f"đối chứng {row['diem_doi_chung']}  ->  lệch {row['lift']}")
-            print(f"\nNghe ra {result['so_loi_nghe_ra']}/{result['tong_so_loi']} lỗi, "
+            print(f"\nNghe ra {result['so_loi_nhan_ra']}/{result['tong_so_loi']} lỗi, "
                   f"lệch trung bình {result['lift_trung_binh']}")
             print(f"Chấm lệch {result['sai_lech_hai_ban_giong_nhau']} điểm giữa HAI BẢN "
                   f"GIỐNG HỆT NHAU (càng gần 0 càng tốt)")
             print(f"=> {result['ket_luan']}")
+
+        if args.check_seeing:
+            from lib.talking_head_edit import vision_quality_check as vision
+            from lib.talking_head_edit.director_client import chat_with_images
+
+            at = args.at if args.at is not None else 20.0
+            model = state.get("options", {}).get("model")
+            work = job.dir / "seeing_check"
+            base = vision.extract_base(Path(state["input_path"]), work, at)
+            probes = vision.build_probe_set(base, work, args.check_strength)
+            verdict, _ = chat_with_images(vision.PROMPT_VI, [(l, p) for l, p, _ in probes],
+                                          model=model, max_tokens=4000)
+            result = vision.score_seeing(verdict.get("ket_qua", []), probes)
+            print(f"Tiêm lỗi ảnh ở giây {at} (độ mạnh {args.check_strength}):")
+            for row in result["chi_tiet"]:
+                print(f"  {row['loi']:<10} khi có {row['diem_khi_co']}, "
+                      f"đối chứng {row['diem_doi_chung']}  ->  lệch {row['lift']}")
+            print(f"Nhìn ra {result['so_loi_nhan_ra']}/{result['tong_so_loi']} lỗi, lệch hai "
+                  f"bản giống hệt {result['sai_lech_hai_ban_giong_nhau']} => {result['ket_luan']}")
+            pairs = vision.build_pair_set(base, work, args.check_strength)
+            verdict, _ = chat_with_images(vision.PAIR_PROMPT_VI, vision.pair_images(pairs),
+                                          model=model, max_tokens=4000)
+            preference = vision.score_preference(verdict.get("ket_qua", []), pairs)
+            a_share = preference["ty_le_chon_a"]
+            print(f"Chọn bản đẹp hơn: đúng {preference['ty_le_dung']:.0%}, chọn 'a' "
+                  f"{'—' if a_share is None else f'{a_share:.0%}'} => {preference['ket_luan']}")
 
         if args.judge_audio:
             report = judge_audio(job, at_seconds=args.at if args.at is not None else 20.0)

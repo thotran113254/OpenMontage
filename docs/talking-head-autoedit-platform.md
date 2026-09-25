@@ -202,19 +202,19 @@ placeholder: một `{{spine}}` lọt ra tới model là lỗi phải chết ngay
 input. Golden nằm ở `tests/fixtures/prompts/`, được chụp **trước khi** thay f-string — nên nó là mốc
 thật, không phải code mới tự đồng ý với chính nó.
 
-| Prompt | Bản hiện dùng | Đổi gì |
-|---|---|---|
-| `structure` | v2 | thêm `{{broll_rule}}` — rỗng khi job không có b-roll, nên v2 = v1 cho job một nguồn |
-| `captions` | v1 | — |
-| `cut_verify` | v2 | thêm verdict thứ ba `unsure` |
-| `cut_verify_look` | v1 | vòng 2 cho `unsure`: đọc dạng sóng, quyết dứt khoát |
-| `revise` | v2 | thêm `{{history}}` — 3 lượt trước, rỗng ở lượt đầu |
-| `select_take` | v1 | — |
+Bản đang dùng của mỗi prompt (`structure`, `captions`, `cut_verify`, `cut_verify_look`, `revise`,
+`select_take`, `card_guidance`) và lý do từng bản đổi nằm trong changelog của chính
+`prompts/registry.json` — không chép số bản ra đây, vì mỗi lần admin đổi bản qua UI là bảng tĩnh này
+lại sai. Bản hiện dùng của các prompt chính được nêu lại ở phần "Cấu hình" của
+[`talking-head-autoedit.md`](talking-head-autoedit.md), kèm link registry.
 
 **Sửa prompt PHẢI làm `direct` chạy lại.** `cache_signature("direct")` băm
-`prompt_registry.fingerprint(["structure","captions"])` + bảng sfx/bgm. Không có nó thì sửa prompt
-không thay đổi gì quan sát được, và kết luận tự nhiên là "prompt không quan trọng" — đây là thứ dễ
-quên nhất của cả thiết kế, và có triệu chứng gây nhầm lẫn nhất.
+`prompt_registry.fingerprint(["structure","captions","card_guidance"])` + bảng sfx/bgm. `card_guidance`
+phải có mặt trong danh sách dù nó chỉ được nối *vào trong* `structure` (`prompt_structure.py` render nó
+rồi ghép làm `{{card_rule}}`) — nếu không thì đổi/revert riêng `card_guidance` sẽ không đổi byte nào
+trong `structure` và lặng lẽ no-op. Thiếu bước băm này thì sửa prompt không thay đổi gì quan sát được,
+và kết luận tự nhiên là "prompt không quan trọng" — đây là thứ dễ quên nhất của cả thiết kế, và có
+triệu chứng gây nhầm lẫn nhất.
 
 `job.json` ghi `prompt_versions` để bản dựng cũ giải thích được. Không có nó thì "hôm qua ra đẹp hơn"
 là câu không tra được.

@@ -6,7 +6,7 @@ BẮT BUỘC trả đủ 7 khoá: cut_remove, grade, bgm, cold_open, endcard, ca
 
 1) "cards" — QUAN TRỌNG NHẤT, làm trước tiên:
 {"w0":i,"w1":j,"kicker":"NHÃN NGẮN — ...","title":"2-4 chữ","badge":"1","bullets":["<=7 chữ"],"bulletWords":[k,m]}
-- Số card do BẠN quyết — không có số mặc định, không tính theo độ dài. Đếm số Ý CHÍNH ĐỘC LẬP thật sự có trong 5 từ lời nói này (mỗi ý tự đứng được một mình, đủ để nói riêng biệt). Ít ý → ít card, kể cả 0-1; đừng chia nhỏ một ý ra nhiều card cho đủ số. Nhiều ý → nhiều card, đừng gộp hai ý khác nhau vào một card cho gọn.
+- Bạn tự quyết có card hay không — **không** mục tiêu số lượng, **không** nhồi cho đủ, **không** đếm "phải X thẻ". Chỉ thêm card khi người xem cần **ĐỌC** (list, bước, số liệu so sánh, checklist) hơn là nhìn mặt người nói. `cards=[]` là bình thường và thường đúng với talking-head. Chỉ khi yêu cầu riêng hoặc card_plan nói rõ (kể cả "0 card", "không thẻ") thì tuân theo — còn lại bạn quyết. Đừng chia nhỏ một ý thành nhiều card; đừng gộp hai ý khác nhau vào một card.
 - Card là màn trắng chấm bi chiếm hình, mặt người thu vào PiP góc dưới-phải. Renderer tự lo: bullet chưa nói tới hiện mờ dạng ghost, hiện rõ đúng lúc bulletWords được nói, PiP thu nhỏ dần, progress cầu vồng đáy màn.
 - bulletWords RẢI ĐỀU theo lời nói trong khoảng card (mỗi ý 3-6s), tránh dồn về cuối.
 
@@ -16,11 +16,11 @@ BẮT BUỘC trả đủ 7 khoá: cut_remove, grade, bgm, cold_open, endcard, ca
 - {"type":"sfx","atWord":i,"offsetSec":0,"name":"<tên file có thật>","volume":0.5} — offsetSec âm = kêu TRƯỚC từ đó; các sfx cách nhau >=0.8s (trừ pop theo bullet).
 - {"type":"shake","atWord":i,"durSec":0.4,"intensity":10} (<=2 lần) và {"type":"flash","atWord":i,"durSec":0.15} (<=3 lần) — chỉ cho ý sốc / chuyển ý lớn.
 
-SFX CÓ THẬT (chỉ 7 file này): sfx_pop.mp3 (keyword/bullet bật) | sfx_pop_high.mp3 (pop lảnh — xen kẽ cho đỡ lặp) | sfx_pop_low.mp3 (pop trầm) | sfx_whoosh.mp3 (card vào / chuyển cảnh) | sfx_riser.mp3 (tiếng dâng ~0.5s, đặt TRƯỚC khoảnh khắc lớn (offsetSec=-0.5)) | sfx_ding.mp3 (chốt ý / số liệu quan trọng) | sfx_tick.mp3 (nhấn nhẹ theo nhịp)
+SFX CÓ THẬT (chỉ 8 file này): sfx_pop.mp3 (keyword/bullet — remotion.media mouse-click.wav (via agent-browser)) | sfx_pop_high.mp3 (pop lảnh — remotion.media switch.wav (via agent-browser)) | sfx_pop_low.mp3 (pop trầm — remotion.media shutter-modern.wav (via agent-browser)) | sfx_whoosh.mp3 (card vào / chuyển — remotion.media whoosh.wav (via agent-browser)) | sfx_riser.mp3 (trước peak (offsetSec âm) — remotion.media whip.wav (via agent-browser)) | sfx_ding.mp3 (chốt ý / số liệu — remotion.media ding.wav (via agent-browser)) | sfx_tick.mp3 (nhấn nhẹ — remotion.media snapchat-notification.wav (via agent-browser)) | sfx_page_turn.mp3 (lật card / section — remotion.media page-turn.wav (via agent-browser))
 
 PHỐI LỚP: hook 3s đầu = keyword + punch_in + sfx_pop cùng nhịp từ được nhấn. Vào card = sfx_riser (offsetSec=-0.5) → sfx_whoosh đúng lúc card vào → mỗi bulletWords kèm sfx_pop/pop_high. Cứ 8-12s phải có 1 biến cố thị giác; không để đoạn nào phẳng quá 12s.
 
-3) "cold_open": null (người dùng tắt cold-open).
+3) "cold_open": null (người dùng tắt hook/teaser đầu video).
 
 4) "endcard": {"title":"câu chốt giá trị <=12 chữ, đúng nội dung video","subtitle":"CTA ngắn tự nhiên"}
 

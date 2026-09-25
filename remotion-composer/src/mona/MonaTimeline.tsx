@@ -2,6 +2,7 @@ import {
   AbsoluteFill,
   Audio,
   Easing,
+  Img,
   Sequence,
   interpolate,
   staticFile,
@@ -18,9 +19,11 @@ import {
   BVP,
   CaptionLineView,
   ExplainerCard,
+  OverlayCard,
   KeywordView,
   TRANSITION_S,
   PIP_BRIDGE_S,
+  shouldUseBoardCards,
   type MonaCard,
   type MonaCaptionLine,
   type MonaKeyword,
@@ -71,7 +74,17 @@ export type TimelineEvent =
   | { type: "sfx"; at: number; name: string; volume?: number }
   | { type: "shake"; at: number; durSeconds?: number; intensity?: number }
   | { type: "flash"; at: number; durSeconds?: number }
-  | { type: "endcard"; at: number; end: number; title: string; subtitle?: string };
+  | {
+      type: "endcard";
+      at: number;
+      end: number;
+      title: string;
+      subtitle?: string;
+      kicker?: string;
+      accent?: string;
+      freezeSrc?: string;
+      artSrc?: string;
+    };
 
 // Loopable background-music beds available in public/ (placeholder synths —
 // swap the files for generated tracks keeping the same names). Grouped by mood
@@ -116,9 +129,34 @@ export interface MonaFrame {
   blurPx?: number;
 }
 
-// Music bed with speech-ducking. Implemented as tiled <Audio> copies (one per
-// file-length window) each with a volume callback on its LOCAL frame — the
-// `loop` + volume-callback combination renders silent, tiling does not.
+/** Constant-volume speech/pause spans. A volume *callback* on <Audio> rendered
+ * silent on this Remotion version (Player and CLI) — never use `volume={(f)=>…}`. */
+function duckSegments(
+  durationSec: number,
+  captions: { at: number; end: number }[],
+  baseVolume: number,
+): { start: number; end: number; volume: number }[] {
+  const pauseVol = Math.min(0.55, baseVolume * 2);
+  const edges: { t: number; d: number }[] = [{ t: 0, d: 0 }];
+  for (const caption of captions) {
+    edges.push({ t: Math.max(0, caption.at - 0.1), d: 1 });
+    edges.push({ t: Math.min(durationSec, caption.end + 0.15), d: -1 });
+  }
+  edges.sort((a, b) => a.t - b.t || a.d - b.d);
+  const segs: { start: number; end: number; volume: number }[] = [];
+  let depth = 0;
+  let prev = 0;
+  let prevVol = pauseVol;
+  for (const edge of edges) {
+    if (edge.t > prev + 1e-4) segs.push({ start: prev, end: edge.t, volume: prevVol });
+    depth = Math.max(0, depth + edge.d);
+    prev = edge.t;
+    prevVol = depth > 0 ? baseVolume : pauseVol;
+  }
+  if (durationSec > prev + 1e-4) segs.push({ start: prev, end: durationSec, volume: prevVol });
+  return segs;
+}
+
 const BgmDucked: React.FC<{
   name: string;
   baseVolume: number;
@@ -127,24 +165,29 @@ const BgmDucked: React.FC<{
   resolveAsset: (name: string) => string;
 }> = ({ name, baseVolume, audioLenSeconds, captions, resolveAsset }) => {
   const { fps, durationInFrames } = useVideoConfig();
-  const tile = Math.max(1, Math.round(audioLenSeconds * fps));
-  const tiles = Math.ceil(durationInFrames / tile);
-  // Library is normalized to -17 LUFS; speech bed sits at -14 LUFS. baseVolume
-  // is the UNDER-SPEECH gain (~0.22 puts music ≈15 dB below voice); pauses ride
-  // up 6 dB so the music is clearly audible between sentences.
-  const duck = (t: number) => {
-    const speaking = captions.some((c) => t >= c.at - 0.1 && t <= c.end + 0.15);
-    return speaking ? baseVolume : Math.min(0.55, baseVolume * 2);
-  };
-  return (
-    <>
-      {Array.from({ length: tiles }, (_, i) => (
-        <Sequence key={`bgm-${i}`} from={i * tile} durationInFrames={Math.min(tile, durationInFrames - i * tile)}>
-          <Audio src={resolveAsset(name)} volume={(f) => duck((i * tile + f) / fps)} />
-        </Sequence>
-      ))}
-    </>
-  );
+  const durationSec = durationInFrames / fps;
+  const audioLen = Math.max(1, audioLenSeconds);
+  const src = resolveAsset(name);
+  const pieces = [];
+  let key = 0;
+  for (const seg of duckSegments(durationSec, captions, baseVolume)) {
+    let t = seg.start;
+    while (t < seg.end - 1e-4) {
+      const posInFile = t % audioLen;
+      const chunk = Math.min(seg.end - t, audioLen - posInFile);
+      pieces.push(
+        <Sequence
+          key={`bgm-${key++}`}
+          from={Math.round(t * fps)}
+          durationInFrames={Math.max(1, Math.round(chunk * fps))}
+        >
+          <Audio src={src} startFrom={Math.round(posInFile * fps)} volume={seg.volume} />
+        </Sequence>,
+      );
+      t += chunk;
+    }
+  }
+  return <>{pieces}</>;
 };
 
 // Assets normally live in the render's public dir (staticFile). The web UI
@@ -157,39 +200,89 @@ const useAsset = (assetBase?: string) => (name: string) =>
 const byType = <T extends TimelineEvent["type"]>(events: TimelineEvent[], t: T) =>
   events.filter((e): e is Extract<TimelineEvent, { type: T }> => e.type === t);
 
-// Full-screen closing CTA card: brand gradient, big title, pulsing follow pill.
-const EndCard: React.FC<{ title: string; subtitle?: string }> = ({ title, subtitle }) => {
+// Last-frame freeze + bottom CTA. The face stays; copy is typeset here so
+// generated art never has to paint Vietnamese letters.
+const EndCard: React.FC<{
+  title: string;
+  subtitle?: string;
+  kicker?: string;
+  accent?: string;
+  freezeSrc?: string;
+  artSrc?: string;
+  resolveAsset: (name: string) => string;
+}> = ({ title, subtitle, kicker, accent, freezeSrc, artSrc, resolveAsset }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const inP = interpolate(frame, [0, 0.4 * fps], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const pulse = 1 + 0.05 * Math.sin((frame / fps) * Math.PI * 2.2);
+  const inP = interpolate(frame, [0, 0.35 * fps], [0, 1], {
+    easing: Easing.out(Easing.cubic),
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const ink = "#F6EDE8";
+  const bar = accent && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(accent) ? accent : "#E10600";
+  const rise = (1 - inP) * 36;
   return (
-    <AbsoluteFill
-      style={{
-        background: "linear-gradient(135deg,#2563EB 0%,#7C3AED 52%,#EC4899 100%)",
-        justifyContent: "center",
-        alignItems: "center",
-        opacity: inP,
-      }}
-    >
-      <div style={{ textAlign: "center", transform: `translateY(${(1 - inP) * 60}px)`, fontFamily: BVP }}>
-        <div style={{ color: "#fff", fontWeight: 800, fontSize: 76, lineHeight: 1.25, padding: "0 80px" }}>{title}</div>
-        {subtitle && <div style={{ color: "rgba(255,255,255,0.85)", fontWeight: 600, fontSize: 42, marginTop: 26 }}>{subtitle}</div>}
+    <AbsoluteFill>
+      {freezeSrc ? (
+        <Img src={resolveAsset(freezeSrc)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : null}
+      {artSrc ? (
+        <Img
+          src={resolveAsset(artSrc)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.28 * inP, mixBlendMode: "screen" }}
+        />
+      ) : null}
+      <AbsoluteFill
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(12,6,8,0.12) 0%, rgba(12,6,8,0.28) 42%, rgba(12,6,8,0.88) 100%)",
+          opacity: inP,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 64,
+          right: 64,
+          bottom: 88,
+          fontFamily: BVP,
+          color: ink,
+          transform: `translateY(${rise}px)`,
+          opacity: inP,
+        }}
+      >
+        {kicker ? (
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: bar,
+              marginBottom: 18,
+            }}
+          >
+            {kicker}
+          </div>
+        ) : null}
+        <div style={{ fontWeight: 800, fontSize: 64, lineHeight: 1.12, maxWidth: 920, textWrap: "balance" as const }}>
+          {title}
+        </div>
         <div
           style={{
+            marginTop: 28,
             display: "inline-block",
-            marginTop: 60,
-            background: "#fff",
-            color: "#7C3AED",
+            background: bar,
+            color: "#14080A",
             fontWeight: 800,
-            fontSize: 44,
-            padding: "22px 64px",
-            borderRadius: 999,
-            transform: `scale(${pulse})`,
-            boxShadow: "0 16px 44px rgba(0,0,0,0.3)",
+            fontSize: 32,
+            lineHeight: 1.25,
+            padding: "18px 36px",
+            borderRadius: 8,
+            maxWidth: 920,
           }}
         >
-          + FOLLOW NGAY
+          {subtitle || "XEM TIẾP"}
         </div>
       </div>
     </AbsoluteFill>
@@ -225,11 +318,13 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
   const sfx = byType(events, "sfx").filter((e) => (SFX_FILES as readonly string[]).includes(e.name));
   const shakes = byType(events, "shake");
   const flashes = byType(events, "flash");
+  const endcards = byType(events, "endcard");
+  const boardCards = shouldUseBoardCards(cards);
 
-  // PiP spans: explicit pipHold events win; otherwise derived from cards.
+  // PiP spans: explicit pipHold events win; otherwise only full explainer boards.
   const holdEvents = byType(events, "pipHold");
   const pipSpans = mergeSpans(
-    (holdEvents.length > 0 ? holdEvents : cards).map((c) => ({ at: c.at, end: c.end })),
+    (holdEvents.length > 0 ? holdEvents : boardCards ? cards : []).map((c) => ({ at: c.at, end: c.end })),
   );
 
   let p = 0;
@@ -269,19 +364,8 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
     }
   }
 
-  // PiP liveness: a slow "breathe" so the corner box is never static, plus a
-  // small bounce each time a bullet lands — the face reacts to the content.
-  // Both scale with p so they vanish when the A-roll is fullscreen.
-  const breathe = 1 + 0.016 * Math.sin((frame / fps) * Math.PI * 0.7) * p;
-  let bounce = 0;
-  for (const c of cards) {
-    for (const bt of c.bulletTimes ?? []) {
-      const f0 = bt * fps;
-      if (frame >= f0 && frame <= f0 + 12) {
-        bounce += Math.sin(((frame - f0) / 12) * Math.PI) * 10 * p;
-      }
-    }
-  }
+  // No idle camera motion. Shake and punch-in play only when the director
+  // (or an explicit event) asked for them — the A-roll stays still at rest.
 
   // Reactive PiP size: the face starts comfortably LARGE when a card wipes in
   // (list is still mostly ghosts) and eases smaller as bullets fill the list —
@@ -313,6 +397,7 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
   // A-roll is a PiP over the card and must not drag its own background along
   const backdropOpacity = 1 - p;
   const brandOp = interpolate(frame, [10, 25, 135, 155], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const inEndcard = endcards.some((e) => frame >= e.at * fps);
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#fff" }}>
@@ -361,11 +446,15 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
         };
         return (
           <Sequence key={`card-${i}`} from={Math.round(c.at * fps)} durationInFrames={Math.max(1, Math.round((c.end - c.at) * fps))}>
-            <ExplainerCard
-              card={card}
-              slideIn={!!prev && c.at - prev.end <= PIP_BRIDGE_S}
-              slideOut={!!next && next.at - c.end <= PIP_BRIDGE_S}
-            />
+            {boardCards ? (
+              <ExplainerCard
+                card={card}
+                slideIn={!!prev && c.at - prev.end <= PIP_BRIDGE_S}
+                slideOut={!!next && next.at - c.end <= PIP_BRIDGE_S}
+              />
+            ) : (
+              <OverlayCard card={card} />
+            )}
           </Sequence>
         );
       })}
@@ -382,7 +471,6 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
           overflow: "hidden",
           border: borderW > 0.5 ? `${borderW}px solid ${frameStyle?.borderColor ?? "#fff"}` : "none",
           boxShadow: p > 0.05 ? "0 18px 44px rgba(0,0,0,0.28)" : "none",
-          transform: `translateY(${-bounce}px) scale(${breathe})`,
         }}
       >
         <OffthreadVideo src={resolveAsset(displaySrc)} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${punch})` }} />
@@ -433,9 +521,10 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
           const visibleUntil = Math.min(nextStart, c.end * 1000 + 450);
           const line: MonaCaptionLine = { text: c.text, startMs: c.at * 1000, endMs: c.end * 1000, highlight: c.highlight, highlightColor: c.highlightColor };
           const dur = Math.max(6, Math.round(((visibleUntil - c.at * 1000) / 1000) * fps));
+          const overlayHit = !boardCards && cards.some((card) => !(c.end <= card.at || c.at >= card.end));
           return (
             <Sequence key={`cap-${i}`} from={Math.round(c.at * fps)} durationInFrames={dur}>
-              <CaptionLineView line={line} />
+              <CaptionLineView line={line} lift={overlayHit} />
             </Sequence>
           );
         })}
@@ -452,6 +541,7 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
 
       {/* rainbow progress bar — fills the full width over the real runtime,
           so the "status bar" visibly moves instead of sitting frozen */}
+      {!inEndcard && (
       <div
         style={{
           position: "absolute",
@@ -468,11 +558,20 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
           borderTopRightRadius: 8,
         }}
       />
+      )}
 
-      {/* endcard CTA — covers everything at the very end */}
-      {byType(events, "endcard").map((e, i) => (
+      {/* endcard CTA — last-frame freeze + typeset copy, not a purple wipe */}
+      {endcards.map((e, i) => (
         <Sequence key={`endcard-${i}`} from={Math.round(e.at * fps)} durationInFrames={Math.max(1, Math.round((e.end - e.at) * fps))}>
-          <EndCard title={e.title} subtitle={e.subtitle} />
+          <EndCard
+            title={e.title}
+            subtitle={e.subtitle}
+            kicker={e.kicker}
+            accent={e.accent}
+            freezeSrc={e.freezeSrc}
+            artSrc={e.artSrc}
+            resolveAsset={resolveAsset}
+          />
         </Sequence>
       ))}
 
@@ -480,10 +579,10 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
           per-span <Sequence> segments at constant volume: the volume-callback
           form rendered SILENT with loop on this Remotion version, so each
           speaking/pause span gets its own constant-volume slice instead. */}
-      {bgm && (BGM_FILES as readonly string[]).includes(bgm.name) && (
+      {bgm && (bgm.name.startsWith("bgm_") || (BGM_FILES as readonly string[]).includes(bgm.name)) && (
         <BgmDucked
           name={bgm.name}
-          baseVolume={Math.min(0.6, Math.max(0, bgm.volume ?? 0.22))}
+          baseVolume={Math.min(0.22, Math.max(0, bgm.volume ?? 0.16))}
           audioLenSeconds={bgm.durationSeconds ?? 30}
           captions={captions}
           resolveAsset={resolveAsset}
@@ -496,7 +595,7 @@ export const MonaTimeline: React.FC<MonaTimelineProps> = ({ videoSrc, previewVid
           concurrent SFX don't leak forever, but never shorter than the file. */}
       {sfx.map((s, i) => (
         <Sequence key={`sfx-${i}`} from={Math.max(0, Math.round(s.at * fps))} durationInFrames={Math.round(1.6 * fps)}>
-          <Audio src={resolveAsset(s.name)} volume={Math.min(1, Math.max(0, s.volume ?? 0.5))} />
+          <Audio src={resolveAsset(s.name)} volume={Math.min(0.22, Math.max(0, s.volume ?? 0.16))} />
         </Sequence>
       ))}
     </AbsoluteFill>

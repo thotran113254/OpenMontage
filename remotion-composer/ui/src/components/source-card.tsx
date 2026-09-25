@@ -75,15 +75,15 @@ export const SourceCard: React.FC<{
           }}
           className="muted"
         >
-          no thumb
+          chưa có ảnh
         </div>
       )}
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="row" style={{ alignItems: "center", gap: 8 }}>
-          <b>{source.id}</b>
+          <b>{source.label || source.id}</b>
           <span className={`badge ${source.role === "broll" ? "pending" : "running"}`}>
-            {source.role}
+            {source.role === "aroll" ? "Có lời nói" : "Chỉ hình phụ"}
           </span>
           <span className="muted small">{source.duration.toFixed(1)}s</span>
           <span className="muted small">
@@ -112,13 +112,13 @@ export const SourceCard: React.FC<{
               disabled={busy}
               onChange={(event) => patch({ role: event.target.value })}
             >
-              <option value="aroll">aroll — có lời nói</option>
-              <option value="broll">broll — chỉ hình phủ</option>
+              <option value="aroll">Có lời nói (nguồn chính)</option>
+              <option value="broll">Chỉ hình phụ (phủ lên lời)</option>
             </select>
           </label>
 
           <label className="field small" style={{ minWidth: 120 }}>
-            Nhóm take
+            Cùng một cảnh
             <input
               value={takeGroup}
               disabled={busy || source.role === "broll"}

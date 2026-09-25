@@ -22,6 +22,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from lib.talking_head_edit.blind_probe import label_probes, score_blind
+
 # One ffmpeg filter per defect, each strong enough to be unmistakable to a
 # listener but still in the range real footage produces.
 # Gain in dB at strength 1.0. Scaling these is the point: detecting a +18 dB
@@ -41,13 +43,10 @@ REVERB = "vang_phong"
 HISS = "xi_nen"
 ALL_DEFECTS = (*DEFECT_GAINS, REVERB, HISS)
 
-# Labels must carry NO information. Naming a sample after the defect inside it
-# hands over the answer: an early version of this check did exactly that and
-# scored a perfect 6/6 at every strength, including one so faint it should have
-# been inaudible — the giveaway that the labels, not the audio, were being read.
-# The order below is fixed but deliberately not the order defects are generated
-# in, so position leaks nothing either.
-LABEL_ORDER = ("m4", "m7", "m2", "m8", "m1", "m5", "m3", "m6")
+# Labels must carry NO information (see `blind_probe`). Naming a sample after
+# the defect inside it hands over the answer: an early version of this check did
+# exactly that and scored a perfect 6/6 at every strength, including one so faint
+# it should have been inaudible.
 
 
 def defect_filter(defect: str, strength: float) -> tuple[str, bool]:
@@ -130,70 +129,10 @@ def build_probe_set(source: Path, out_dir: Path, at_seconds: float,
         built.append((to_mp3(args, f"x_{defect}"), defect))
     built.append((to_mp3(["-i", str(base)], "ctl2"), None))   # the twin
 
-    # Neutral labels, and the control is not first in the sent order.
-    labelled = list(zip(LABEL_ORDER, built))
-    labelled.sort(key=lambda item: item[0])
-    return [(label, path, injected) for label, (path, injected) in labelled]
+    return label_probes(built)
 
 
 def score_hearing(rows: list[dict[str, Any]],
                   probes: list[tuple[str, Path, str | None]]) -> dict[str, Any]:
-    """Turn the model's severity grid into a verdict on whether it heard anything.
-
-    `lift` is the number that matters: severity of the injected defect in the
-    sample that has it, minus the same defect's severity in the control. A model
-    that is not listening scores both the same and lifts to zero.
-    """
-    by_label = {str(r.get("ban")): r for r in rows if r.get("ban")}
-    # The two clean copies are told apart by filename, not by label — the labels
-    # sent to the model deliberately carry nothing.
-    control_label = next((l for l, p, i in probes if i is None and p.stem.endswith("_ctl")), "")
-    twin_label = next((l for l, p, i in probes if i is None and p.stem.endswith("_ctl2")), "")
-    control = by_label.get(control_label, {})
-
-    def severity(row: dict[str, Any], defect: str) -> float | None:
-        value = row.get(defect)
-        return float(value) if isinstance(value, (int, float)) else None
-
-    detections: list[dict[str, Any]] = []
-    for label, _, injected in probes:
-        if not injected:
-            continue
-        here, there = severity(by_label.get(label, {}), injected), severity(control, injected)
-        detections.append({
-            "loi": injected,
-            "diem_khi_co": here,
-            "diem_doi_chung": there,
-            "lift": None if here is None or there is None else round(here - there, 2),
-        })
-
-    lifts = [d["lift"] for d in detections if d["lift"] is not None]
-    heard = [d for d in detections if (d["lift"] or 0) >= 2.0]
-
-    # Consistency: the twin is byte-identical audio under another label.
-    twin = by_label.get(twin_label, {})
-    gaps = [abs(a - b) for defect in ALL_DEFECTS
-            if (a := severity(control, defect)) is not None
-            and (b := severity(twin, defect)) is not None]
-
-    return {
-        "chi_tiet": detections,
-        "so_loi_nghe_ra": len(heard),
-        "tong_so_loi": len(detections),
-        "lift_trung_binh": round(sum(lifts) / len(lifts), 2) if lifts else None,
-        "sai_lech_hai_ban_giong_nhau": round(sum(gaps) / len(gaps), 2) if gaps else None,
-        "ket_luan": _verdict(len(heard), len(detections), gaps),
-    }
-
-
-def _verdict(heard: int, total: int, gaps: list[float]) -> str:
-    drift = sum(gaps) / len(gaps) if gaps else 0.0
-    if not total:
-        return "không chấm được"
-    if heard >= total * 0.75 and drift <= 1.5:
-        return "NGHE ĐƯỢC — bắt đúng lỗi và không bịa khác biệt"
-    if heard >= total * 0.75:
-        return f"nghe được nhưng thiếu ổn định (lệch {drift:.1f} điểm giữa hai bản giống nhau)"
-    if heard >= total * 0.4:
-        return "nghe được một phần — chỉ bắt được lỗi rõ nhất"
-    return "KHÔNG NGHE ĐƯỢC — điểm không đổi khi lỗi được thêm vào"
+    """Did the model hear each injected defect? See `blind_probe.score_blind`."""
+    return score_blind(rows, probes, ALL_DEFECTS, "nghe")

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 from lib.talking_head_edit.stages import render
 
@@ -145,8 +144,21 @@ class TestParseProgressLine:
 
 class TestConcurrencyParameterization:
     def test_default_max_concurrency_matches_local_cap(self, monkeypatch):
-        monkeypatch.setattr(render.os, "cpu_count", lambda: 32)
+        monkeypatch.setattr(render, "available_cores", lambda: 32)
+        monkeypatch.setattr(render, "cpu_budget", lambda: 19)
         assert render._concurrency({}) == render.MAX_CONCURRENCY
+
+    def test_the_env_override_is_held_to_the_budget_too(self, monkeypatch):
+        monkeypatch.setenv("OPENMONTAGE_RENDER_MAX_CONCURRENCY", "16")
+        monkeypatch.setattr(render, "available_cores", lambda: 10)
+        monkeypatch.setattr(render, "cpu_budget", lambda: 6)
+        assert render._concurrency({}) == 6
+
+    def test_a_shared_small_box_is_held_to_its_cpu_budget(self, monkeypatch):
+        """10 cores shared with other projects: render must not take all of them."""
+        monkeypatch.setattr(render, "available_cores", lambda: 10)
+        monkeypatch.setattr(render, "cpu_budget", lambda: 6)
+        assert render._concurrency({}) == 6
 
     def test_custom_max_concurrency_raises_the_cap_for_cloud(self, monkeypatch):
         monkeypatch.setattr(render.os, "cpu_count", lambda: 64)
@@ -166,3 +178,9 @@ class TestConcurrencyParameterization:
         monkeypatch.setattr(render.os, "cpu_count", lambda: 64)
         default = max(1, min(32, 64 - 2))
         assert render._concurrency({"render_concurrency": "lots"}, max_concurrency=32) == default
+
+    def test_env_raises_the_local_cap(self, monkeypatch):
+        monkeypatch.setattr(render, "available_cores", lambda: 32)
+        monkeypatch.setattr(render, "cpu_budget", lambda: 19)
+        monkeypatch.setenv("OPENMONTAGE_RENDER_MAX_CONCURRENCY", "16")
+        assert render._concurrency({}) == 16

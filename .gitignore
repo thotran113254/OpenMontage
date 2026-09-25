@@ -109,3 +109,13 @@ remotion-composer/out/
 # never conflicts with a local prompt experiment and `git diff` stays readable.
 # Commit one deliberately if it should become the shipped default.
 prompts/overrides/
+
+# Claude Code local state (project commands/skills under .claude/ stay tracked)
+.claude/*.png
+.claude/browser-state.json
+.claude/settings.local.json
+.claude/agent-memory/
+
+# Internal working notes: audits, reviews and in-flight plans stay local
+plans/reports/
+plans/260924-2224-autoedit-intent-api-ux/

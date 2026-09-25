@@ -4,7 +4,7 @@
 `make autoedit-ui` as two separate targets for two terminals — and `make`
 itself isn't installed on every dev machine (this one included). This script
 launches both as child processes so one command gets you from a raw job to
-the UI at http://localhost:5173.
+the UI (AUTOEDIT_UI_PORT, default 5617).
 
 Each child gets its own process group/session (same isolation
 `server/queue_worker.py` uses for job runs), so Ctrl+C here does not reach
@@ -24,9 +24,11 @@ import threading
 import time
 from pathlib import Path
 
+from lib.env_loader import load_env
+
 REPO_ROOT = Path(__file__).resolve().parent
-SERVER_URL = "http://127.0.0.1:8756"
-UI_URL = "http://localhost:5173"
+DEFAULT_API_PORT = "8861"
+DEFAULT_UI_PORT = "5617"
 
 _WINDOWS = os.name == "nt"
 _ISOLATION = (
@@ -67,7 +69,26 @@ def main() -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
 
-    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    load_env()
+    api_port = os.environ.get("AUTOEDIT_PORT", DEFAULT_API_PORT)
+    ui_port = os.environ.get("AUTOEDIT_UI_PORT", DEFAULT_UI_PORT)
+    bind = os.environ.get("AUTOEDIT_BIND", "127.0.0.1")
+    public_host = os.environ.get("AUTOEDIT_PUBLIC_HOST", "").strip()
+    api_url = os.environ.get("AUTOEDIT_API", f"http://127.0.0.1:{api_port}")
+    local_ui = f"http://127.0.0.1:{ui_port}"
+    public_ui = f"http://{public_host}:{ui_port}" if public_host else local_ui
+    public_api = f"http://{public_host}:{api_port}" if public_host else api_url
+
+    env = {
+        **os.environ,
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUNBUFFERED": "1",
+        "AUTOEDIT_BIND": bind,
+        "AUTOEDIT_PORT": api_port,
+        "AUTOEDIT_UI_PORT": ui_port,
+        "AUTOEDIT_API": api_url,
+        "AUTOEDIT_PUBLIC_HOST": public_host,
+    }
 
     server = subprocess.Popen(
         [sys.executable, "-m", "server.app"],
@@ -76,15 +97,18 @@ def main() -> int:
         text=True, encoding="utf-8", errors="replace", **_ISOLATION,
     )
     ui = subprocess.Popen(
-        ["npx", "vite", "--config", "ui/vite.config.ts"],
+        ["npm", "run", "ui"],
         cwd=str(REPO_ROOT / "remotion-composer"), env=env,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, encoding="utf-8", errors="replace",
         shell=_WINDOWS, **_ISOLATION,
     )
 
-    print(f"==> Job server: {SERVER_URL}")
-    print(f"==> Web UI:     {UI_URL}  (calls the server above)")
+    print(f"==> Job server: {api_url}  (bind {bind}:{api_port})")
+    print(f"==> Web UI:     {local_ui}  (proxies /api to the server above)")
+    if public_host:
+        print(f"==> Public UI:  {public_ui}")
+        print(f"==> Public API: {public_api}")
     print("    Ctrl+C stops both.\n")
 
     for proc, tag in ((server, "server"), (ui, "ui")):

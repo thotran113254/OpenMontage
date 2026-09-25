@@ -1,29 +1,32 @@
-"""Projects: sources uploaded once, reused by many builds.
+"""Projects: a shared studio of creator folders, each holding many independent clips.
 
 Deliberately no database. One directory per entity with a JSON file in it, the
-same shape as `JobStore` — a dev machine holds a few dozen projects, and a schema
-plus migrations would be pure cost.
+same shape as `JobStore`. Physical layout stays flat so existing projects do not
+move; grouping is a `folder` field (creator / team) on `project.json`.
 
 ```
+Studio (UI)
+└── folder / người          e.g. 5 creators
+    └── project             one workspace per person
+        ├── sources/        each talking-head clip is its own video
+        └── jobs/           one build uses selected source_ids, not every clip
+
 projects/autoedit/<project_id>/
-├── project.json
-├── sources/  s0_take-1.mp4  s0.transcript.json  s0.thumb.jpg
-└── jobs/<job_id>/          exactly the job layout, unchanged
+├── project.json            folder, defaults (style/BGM), sources[], jobs[]
+├── sources/                s0_clip.mp4  s0.transcript.json  s0.thumb.jpg
+└── jobs/<job_id>/
 ```
 
-The one thing worth building here is that sources belong to the PROJECT: today a
-second build of the same footage means uploading the file again, and while the
-transcript cache is shared by content hash, the video itself is duplicated on
-disk.
+A project is a creator workspace, not one shoot: 10 clips a day stay in the
+same project and each render picks its own source. Omitting `source_ids` still
+uses every source (legacy multi-take assembly).
 
-Legacy jobs under `projects/autoedit-jobs/` are read, never moved. Migrating
-files would risk data to gain tidiness.
+Legacy jobs under `projects/autoedit-jobs/` are read, never moved.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import time
 from pathlib import Path
@@ -34,6 +37,7 @@ from lib.talking_head_edit.job_store import (
     STAGES,
     JobStore,
     slugify,
+    write_json_atomic,
 )
 from lib.talking_head_edit.project_uploads import (
     UPLOAD_SUFFIXES,
@@ -46,15 +50,19 @@ from lib.talking_head_edit.project_uploads import (
 PROJECTS_ROOT = REPO_ROOT / "projects" / "autoedit"
 
 __all__ = ["PROJECTS_ROOT", "UPLOAD_SUFFIXES", "Project", "ProjectError",
-           "ProjectStore"]
+           "ProjectStore", "clean_folder"]
 
 
 class ProjectError(RuntimeError):
     pass
 
 
+def clean_folder(value: Any) -> str:
+    return str(value or "").strip()[:80]
+
+
 class Project:
-    """One shoot: its sources, its shared settings, and its builds."""
+    """One creator workspace: many clips, shared style, independent builds."""
 
     def __init__(self, project_id: str, dir_path: Path):
         self.project_id = project_id
@@ -83,9 +91,7 @@ class Project:
     def save(self, state: dict[str, Any]) -> None:
         state["updated_at"] = time.time()
         self.dir.mkdir(parents=True, exist_ok=True)
-        tmp = self.state_path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, self.state_path)
+        write_json_atomic(self.state_path, state)
 
     def update(self, **fields: Any) -> dict[str, Any]:
         state = self.load()
@@ -160,6 +166,12 @@ class Project:
             "transcript": f"sources/{source_id}.transcript.json",
             "warnings": warnings,
             "added_at": time.time(),
+            # Human workspace fields — optional, never measured by probe.
+            "tags": [],
+            "notes": "",
+            "meta": {},
+            "bgm_name": "",
+            "bgm_volume": None,
         }
         state.setdefault("sources", []).append(spec)
         self.save(state)
@@ -168,25 +180,63 @@ class Project:
     def update_source(self, source_id: str, **fields: Any) -> dict[str, Any]:
         """Change the human-owned metadata of one source.
 
-        Only these four: everything else is measured, and letting a client
-        overwrite a measurement would put a guess where a fact was.
+        Measured fields (duration, size, loudness…) stay read-only. Workspace
+        fields (tags, notes, meta, preferred BGM) are free-form so long-lived
+        clip libraries stay manageable across months.
         """
-        allowed = {"role", "order", "take_group", "label"}
+        allowed = {
+            "role", "order", "take_group", "label",
+            "tags", "notes", "meta", "bgm_name", "bgm_volume",
+        }
         unknown = set(fields) - allowed
         if unknown:
             raise ProjectError(
                 f"Không sửa được: {', '.join(sorted(unknown))}. "
                 f"Chỉ sửa được: {', '.join(sorted(allowed))}")
 
+        cleaned: dict[str, Any] = {}
+        for key, value in fields.items():
+            if value is None and key != "bgm_volume":
+                continue
+            if key == "tags":
+                if not isinstance(value, list):
+                    raise ProjectError("tags phải là danh sách chuỗi")
+                cleaned[key] = [str(item).strip() for item in value if str(item).strip()]
+            elif key == "notes":
+                cleaned[key] = str(value)
+            elif key == "meta":
+                if not isinstance(value, dict):
+                    raise ProjectError("meta phải là object JSON")
+                cleaned[key] = value
+            elif key == "bgm_name":
+                cleaned[key] = str(value or "").strip()
+            elif key == "bgm_volume":
+                if value is None or value == "":
+                    cleaned[key] = None
+                else:
+                    try:
+                        vol = float(value)
+                    except (TypeError, ValueError) as exc:
+                        raise ProjectError("bgm_volume phải là số") from exc
+                    cleaned[key] = max(0.0, min(1.0, vol))
+            else:
+                cleaned[key] = value
+
         state = self.load()
         for spec in state.get("sources", []):
             if str(spec.get("id")) == source_id:
-                spec.update({k: v for k, v in fields.items() if v is not None})
-                if "role" in fields and fields["role"] is not None:
-                    if fields["role"] not in ("aroll", "broll"):
+                # Backfill workspace keys on older project.json rows.
+                spec.setdefault("tags", [])
+                spec.setdefault("notes", "")
+                spec.setdefault("meta", {})
+                spec.setdefault("bgm_name", "")
+                spec.setdefault("bgm_volume", None)
+                spec.update(cleaned)
+                if "role" in cleaned:
+                    if cleaned["role"] not in ("aroll", "broll"):
                         raise ProjectError("role phải là 'aroll' hoặc 'broll'")
                     # A human calling something b-roll overrides the measurement.
-                    spec["speech"] = fields["role"] == "aroll" and spec.get("speech", True)
+                    spec["speech"] = cleaned["role"] == "aroll" and spec.get("speech", True)
                 self.save(state)
                 return spec
         raise ProjectError(f"Không có nguồn {source_id} trong project {self.project_id}")
@@ -244,20 +294,65 @@ class Project:
         options["assembly"] = {**project_assembly, **(given.get("assembly") or {})}
         return options
 
+    def _pick_sources(self, source_ids: list[str] | None,
+                      include_broll: bool) -> tuple[list[dict[str, Any]], list[str]]:
+        """Resolve which clips this build owns.
+
+        `source_ids=None` keeps the old behaviour (every source) so multi-take
+        assembly and existing tests still work. A daily clip render passes one id.
+        """
+        state = self.load()
+        all_specs = list(state.get("sources") or [])
+        by_id = {str(spec.get("id")): spec for spec in all_specs}
+
+        if source_ids is None:
+            chosen = list(all_specs)
+            requested = [str(spec.get("id")) for spec in all_specs]
+        else:
+            requested = [str(item).strip() for item in source_ids if str(item).strip()]
+            if not requested:
+                raise ProjectError("Chưa chọn video nào để dựng")
+            missing = [item for item in requested if item not in by_id]
+            if missing:
+                raise ProjectError(
+                    f"Không có nguồn {', '.join(missing)} trong project {self.project_id}")
+            chosen = [by_id[item] for item in requested]
+            if include_broll:
+                have = {str(spec.get("id")) for spec in chosen}
+                for spec in all_specs:
+                    if spec.get("role") == "broll" and str(spec.get("id")) not in have:
+                        chosen.append(spec)
+
+        rows = [{**spec, "path": str(self.source_path(spec))} for spec in chosen]
+        return rows, requested
+
     def create_job(self, options: dict[str, Any] | None = None,
-                   title: str = "") -> Any:
-        """A build of this project. Sources come from the project, in order."""
+                   title: str = "",
+                   source_ids: list[str] | None = None,
+                   include_broll: bool = True) -> Any:
+        """A build of selected clips. Default: every source in the project."""
         state = self.load()
         from lib.talking_head_edit import sources as sources_mod
 
-        rows = [{**spec, "path": str(self.source_path(spec))}
-                for spec in state.get("sources", [])]
+        rows, requested = self._pick_sources(source_ids, include_broll)
         speaking = sources_mod.aroll(rows)
         overlays = sources_mod.broll(rows)
         if not speaking:
             raise ProjectError(
-                "Project chưa có nguồn nào có lời nói. Pipeline neo theo lời nói "
-                "nên cần ít nhất một nguồn A-roll.")
+                "Chưa có video có lời nói trong phần đã chọn. Pipeline neo theo "
+                "lời nói nên cần ít nhất một nguồn A-roll.")
+
+        # Prefer per-clip BGM when building one talking-head and the caller did
+        # not pin bgm_name — keeps long-lived clip libraries self-describing.
+        given = dict(options or {})
+        if len(speaking) == 1 and "bgm_name" not in given:
+            pref_name = str(speaking[0].get("bgm_name") or "").strip()
+            if pref_name:
+                given["bgm_name"] = pref_name
+                if "bgm" not in given:
+                    given["bgm"] = True
+                if "bgm_volume" not in given and speaking[0].get("bgm_volume") is not None:
+                    given["bgm_volume"] = speaking[0].get("bgm_volume")
 
         # B-roll goes in too. `probe` classifies each source and `spine_build`
         # routes the silent ones to `overlay_pool` instead of the word spine — so
@@ -266,10 +361,13 @@ class Project:
         #
         # A-roll first, because `primary_input_path` (used by grade preview and
         # calibrate) means "the footage", and that has to be a speaking source.
+        speaking_labels = [str(row.get("label") or row.get("id")) for row in speaking]
+        default_title = speaking_labels[0] if len(speaking) == 1 else (
+            title or state.get("title", ""))
         job = self.job_store().create(
             [row["path"] for row in speaking + overlays],
-            self.job_options(options),
-            title=title or state.get("title", ""),
+            self.job_options(given),
+            title=title or default_title,
             project_id=self.project_id,
         )
         # Hand the classification down so probe keeps the human's decisions
@@ -280,18 +378,34 @@ class Project:
               "duration", "width", "height", "fps", "sha256", "has_audio",
               "mean_volume_db")}
             for row in sorted(rows, key=lambda r: int(r.get("order", 0)))
-        ], project=state)
+        ], project=state, source_ids=requested, include_broll=bool(include_broll))
 
         state.setdefault("jobs", []).append(job.job_id)
         self.save(state)
         return job
 
+    def _source_ids_for_job(self, job_state: dict[str, Any],
+                            specs: list[dict[str, Any]]) -> list[str]:
+        stored = job_state.get("source_ids")
+        if isinstance(stored, list) and stored:
+            return [str(item) for item in stored]
+        paths = {str(Path(p).resolve())
+                 for p in (job_state.get("input_paths") or []) if p}
+        if not paths:
+            return []
+        return [str(spec["id"]) for spec in specs
+                if str(self.source_path(spec).resolve()) in paths]
+
     def builds(self) -> list[dict[str, Any]]:
         """Every build with just enough to compare them in a list."""
+        specs = list(self.load().get("sources") or [])
+        labels = {str(spec.get("id")): str(spec.get("label") or spec.get("id"))
+                  for spec in specs}
         out: list[dict[str, Any]] = []
         for job_state in self.job_store().list():
             job_id = str(job_state.get("job_id"))
             job_dir = self.jobs_dir / job_id
+            source_ids = self._source_ids_for_job(job_state, specs)
             out.append({
                 "job_id": job_id,
                 "title": job_state.get("title"),
@@ -300,11 +414,36 @@ class Project:
                 "current_version": job_state.get("current_version", 0),
                 "cost_usd": job_state.get("cost_usd", 0.0),
                 "has_final": (job_dir / "final.mp4").exists(),
+                "has_thumbnail": (job_dir / "thumbnail.jpg").exists(),
+                "media_base": f"/api/media/{job_id}/",
                 "prompt": (job_state.get("options") or {}).get("prompt", ""),
+                "source_ids": source_ids,
+                "source_labels": [labels.get(sid, sid) for sid in source_ids],
                 "stages": {name: (job_state.get("stages") or {}).get(name, {}).get("status")
                            for name in STAGES},
             })
         return out
+
+
+def ready_source_ids(project_dir: Path) -> set[str]:
+    """Source ids that already have a finished MP4. Only opens job.json of
+    jobs that actually produced final.mp4 — the list page needs a count, not a
+    full builds() walk.
+    """
+    ready: set[str] = set()
+    jobs = project_dir / "jobs"
+    if not jobs.exists():
+        return ready
+    for final in jobs.glob("*/final.mp4"):
+        state_path = final.parent / "job.json"
+        try:
+            data = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        ids = data.get("source_ids")
+        if isinstance(ids, list) and ids:
+            ready.update(str(item) for item in ids)
+    return ready
 
 
 class ProjectStore:
@@ -314,7 +453,8 @@ class ProjectStore:
 
     def create(self, title: str, assembly: dict[str, Any] | None = None,
                keyterms: list[str] | None = None,
-               defaults: dict[str, Any] | None = None) -> Project:
+               defaults: dict[str, Any] | None = None,
+               folder: str = "") -> Project:
         stamp = time.strftime("%y%m%d-%H%M%S")
         project_id = f"{slugify(title or 'project')}-{stamp}"
         project = Project(project_id, self.root / project_id)
@@ -323,6 +463,7 @@ class ProjectStore:
         project.save({
             "project_id": project_id,
             "title": title or project_id,
+            "folder": clean_folder(folder),
             "created_at": time.time(),
             "sources": [],
             "assembly": assembly or {},
@@ -347,14 +488,21 @@ class ProjectStore:
             except (OSError, json.JSONDecodeError):
                 continue
             sources = state.get("sources") or []
+            aroll_ids = [str(s.get("id")) for s in sources
+                         if s.get("role", "aroll") == "aroll"]
+            ready_ids = ready_source_ids(path.parent)
+            ready_count = sum(1 for sid in aroll_ids if sid in ready_ids)
             first_thumb = next((s.get("thumb") for s in sources if s.get("thumb")), None)
             out.append({
                 "project_id": state.get("project_id"),
                 "title": state.get("title"),
+                "folder": state.get("folder") or "",
                 "created_at": state.get("created_at"),
                 "updated_at": state.get("updated_at"),
                 "source_count": len(sources),
-                "aroll_count": sum(1 for s in sources if s.get("role", "aroll") == "aroll"),
+                "aroll_count": len(aroll_ids),
+                "ready_count": ready_count,
+                "pending_count": max(0, len(aroll_ids) - ready_count),
                 "total_seconds": round(sum(float(s.get("duration") or 0) for s in sources), 1),
                 "build_count": len(state.get("jobs") or []),
                 "thumb": first_thumb,

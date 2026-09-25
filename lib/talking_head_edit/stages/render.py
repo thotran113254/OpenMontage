@@ -23,12 +23,30 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from lib.talking_head_edit.cpu_budget import available_cores, cpu_budget
 from lib.talking_head_edit.job_store import REPO_ROOT, SHARED_PUBLIC
 
 COMPOSER_DIR = REPO_ROOT / "remotion-composer"
 COMPOSITION_ID = "MonaTimeline"
 FRAME_SEEK_ERROR = "No frame found at position"
-MAX_CONCURRENCY = 8
+# Hard ceiling for local renders; OPENMONTAGE_RENDER_MAX_CONCURRENCY overrides
+# it. The effective default is also held to the machine's CPU budget.
+_DEFAULT_MAX_CONCURRENCY = 8
+
+
+def _configured_max_concurrency() -> int:
+    """The env override, else the default — either way held to the CPU budget."""
+    raw = os.environ.get("OPENMONTAGE_RENDER_MAX_CONCURRENCY", "").strip()
+    try:
+        cap = int(raw)
+    except ValueError:
+        cap = _DEFAULT_MAX_CONCURRENCY
+    return max(1, min(cap, cpu_budget()))
+
+
+# Hard default used by tests. Runtime workers come from
+# `_configured_max_concurrency()` so a later `load_env()` can raise the cap.
+MAX_CONCURRENCY = _DEFAULT_MAX_CONCURRENCY
 
 
 class RenderError(RuntimeError):
@@ -36,7 +54,7 @@ class RenderError(RuntimeError):
 
 
 def _concurrency(options: dict[str, Any] | None = None,
-                 max_concurrency: int = MAX_CONCURRENCY) -> int:
+                 max_concurrency: int | None = None) -> int:
     """Workers for the Remotion render.
 
     `render_concurrency` may be a number or the string `"half"`. `"half"` exists
@@ -45,12 +63,15 @@ def _concurrency(options: dict[str, Any] | None = None,
     that repeated frames, so it needs the lower concurrency from the first frame
     rather than after a crash that never comes.
 
-    `max_concurrency` defaults to the local-machine cap (`MAX_CONCURRENCY = 8`).
+    `max_concurrency` defaults to the local-machine cap (`MAX_CONCURRENCY`).
     The cloud render path (`lib/cloud_render/remote.py`) passes a much higher
-    cap derived from the rented box's core count -- raising `MAX_CONCURRENCY`
-    itself would regress the local machine this default was tuned on.
+    cap derived from the rented box's core count.
     """
-    default = max(1, min(max_concurrency, (os.cpu_count() or 4) - 2))
+    if max_concurrency is None:
+        max_concurrency, cores = _configured_max_concurrency(), available_cores()
+    else:   # a rented box: its own cores, minus headroom for the compositor
+        cores = (os.cpu_count() or 4) - 2
+    default = max(1, min(max_concurrency, cores))
     requested = (options or {}).get("render_concurrency")
     if requested is None:
         return default
@@ -83,17 +104,24 @@ def stage_assets(job, props: dict[str, Any]) -> Path:
     wanted = {event["name"] for event in props.get("events", []) if event.get("type") == "sfx"}
     if props.get("bgm", {}).get("name"):
         wanted.add(props["bgm"]["name"])
+    stills = set()
+    for event in props.get("events", []):
+        for key in ("freezeSrc", "artSrc"):
+            name = event.get(key)
+            if name:
+                stills.add(Path(str(name)).name)
     for name in sorted(wanted):
         source = SHARED_PUBLIC / name
         if source.exists():
             _link_or_copy(source, staging / name)
         else:
             job.emit("warning", "render", f"Thiếu file audio khi dựng staging: {name}")
+    for name in sorted(stills):
+        source = job.dir / name
+        if source.exists():
+            _link_or_copy(source, staging / name)
 
-    # Drop assets an earlier version referenced but this one doesn't. Without
-    # this the staging dir accumulates every track ever tried, and Remotion
-    # copies all of it into the bundle on each render.
-    keep = wanted | {Path(props["videoSrc"]).name}
+    keep = wanted | stills | {Path(props["videoSrc"]).name}
     for stale in staging.iterdir():
         if stale.is_file() and stale.name not in keep:
             stale.unlink()

@@ -28,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+from lib.talking_head_edit.cpu_budget import cpu_budget, ffmpeg_decode_threads, ffmpeg_threads
 from lib.talking_head_edit.resolve_media import (
     ResolveError,
     build_audio_master_chain,
@@ -64,9 +65,15 @@ def can_copy_span(span: Span, grade_chain: str, tempo: float,
     return str(probe.get("video_codec") or "") == "h264"
 
 
+# Every encoded piece of the timeline shares this format, which is what lets the
+# concat demuxer join them with `-c copy` instead of a second encode.
+_SEGMENT_FORMAT = ["-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "-ac", "2",
+                   "-video_track_timescale", "90000"]
+
+
 def extract_span(span: Span, out_path: Path, grade_chain: str, tempo: float,
                  fps: int = 30, preset: str = "medium", crf: int = 17,
-                 copy_streams: bool = False) -> Path:
+                 copy_streams: bool = False, parallel_jobs: int = 1) -> Path:
     """Encode one span. THE ONLY PLACE VIDEO IS ENCODED.
 
     Everything after this point copies the video stream. Two encodes would undo
@@ -93,13 +100,11 @@ def extract_span(span: Span, out_path: Path, grade_chain: str, tempo: float,
     audio_chain = build_audio_span_chain(tempo, span.duration)
 
     result = subprocess.run(
-        ["ffmpeg", "-y", "-ss", f"{span.start:.3f}", "-to", f"{span.end:.3f}",
-         "-i", str(span.path),
+        ["ffmpeg", "-y", *ffmpeg_decode_threads(parallel_jobs),
+         "-ss", f"{span.start:.3f}", "-to", f"{span.end:.3f}", "-i", str(span.path),
          "-vf", ",".join(video_filters), "-af", audio_chain,
          "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
-         "-pix_fmt", "yuv420p",
-         "-c:a", "aac", "-ar", "48000", "-ac", "2",
-         "-r", str(fps), "-video_track_timescale", "90000",
+         *ffmpeg_threads(parallel_jobs), *_SEGMENT_FORMAT, "-r", str(fps),
          str(out_path), "-loglevel", "error"],
         capture_output=True, text=True,
     )
@@ -248,11 +253,13 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
         for span in spans)
 
     segments: list[Path] = []
+    # Parallel spans share the CPU budget rather than each taking every core.
+    workers = max(1, min(max_workers, cpu_budget(), len(spans)))
     try:
-        with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(spans)))) as pool:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [
                 pool.submit(extract_span, span, segments_dir / f"seg_{index:04d}.mp4",
-                            chain_for(span), tempo, fps, preset, crf, copy_all)
+                            chain_for(span), tempo, fps, preset, crf, copy_all, workers)
                 for index, span in enumerate(spans)
             ]
             # Ordered by index, not by completion: the timeline is the span order.
@@ -289,32 +296,32 @@ def prepend_teaser(base_video: Path, start: float, end: float, fps: int = 30,
                    preset: str = "medium", crf: int = 17) -> float:
     """Cut [start,end] out of the finished timeline and glue it on the front.
 
+    Only the teaser is encoded (a cut off-keyframe has to be); it is encoded in
+    the segment format and joined with `-c copy`, so the main timeline keeps its
+    single encode instead of paying a second full-length one.
+
     Returns the teaser length, i.e. the offset every event must shift by.
     """
     teaser = base_video.with_name("_teaser_tmp.mp4")
     base = base_video.with_name("_base_tmp.mp4")
     base_video.replace(base)
-    fade_start = max(0.0, (end - start) - 0.08)
+    fade_start = max(0.0, (end - start) - 0.02)
     try:
-        # 80ms fade-out masks any residual consonant at the seam
+        # 20ms fade-out only — 80ms used to dump a hole of silence onto the
+        # first phoneme of the main take (shotgun expander then crushed it).
         subprocess.run(
             ["ffmpeg", "-y", "-ss", f"{start:.3f}", "-to", f"{end:.3f}", "-i", str(base),
-             "-af", f"afade=t=out:st={fade_start:.3f}:d=0.08",
+             "-af", f"afade=t=out:st={fade_start:.3f}:d=0.02",
              "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
-             "-c:a", "aac", "-r", str(fps), str(teaser), "-loglevel", "error"],
-            check=True, capture_output=True,
+             *ffmpeg_threads(), *_SEGMENT_FORMAT, "-r", str(fps),
+             str(teaser), "-loglevel", "error"],
+            check=True, capture_output=True, text=True,
         )
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", str(teaser), "-i", str(base), "-filter_complex",
-             "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
-             "-map", "[v]", "-map", "[a]",
-             "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
-             "-c:a", "aac", "-r", str(fps), str(base_video), "-loglevel", "error"],
-            check=True, capture_output=True,
-        )
-    except subprocess.CalledProcessError as exc:
+        concat_segments([teaser, base], base_video)
+    except (subprocess.CalledProcessError, ResolveError) as exc:
         base.replace(base_video)
-        raise ResolveError(f"Ghép cold-open thất bại: {exc.stderr[:300]}") from exc
+        detail = exc.stderr if isinstance(exc, subprocess.CalledProcessError) else str(exc)
+        raise ResolveError(f"Ghép cold-open thất bại: {str(detail)[:300]}") from exc
     finally:
         teaser.unlink(missing_ok=True)
         base.unlink(missing_ok=True)
@@ -351,7 +358,7 @@ def make_preview_proxy(src: Path, out_path: Path,
     """
     result = subprocess.run(
         ["ffmpeg", "-y", "-i", str(src),
-         "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
+         "-c:v", "libx264", "-preset", preset, "-crf", str(crf), *ffmpeg_threads(),
          "-c:a", "copy", "-movflags", "+faststart",
          str(out_path), "-loglevel", "error"],
         capture_output=True, text=True,

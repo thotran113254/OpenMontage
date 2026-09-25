@@ -1,0 +1,1 @@
+Số card do BẠN quyết cho {{n}} từ này — không công thức mật độ, không số mặc định. Hỏi clip này: người xem cần ĐỌC list/bước/so sánh, hay đang xem mặt người nói? Card che mặt — dùng khi đọc thắng hơn nhìn. 0 card (ít card) là bình thường. Đừng chia nhỏ một ý ra nhiều card; đừng gộp hai ý khác nhau vào một card.

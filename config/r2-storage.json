@@ -1,6 +1,6 @@
 {
-  "enabled": false,
-  "bucket": "",
+  "enabled": true,
+  "bucket": "openmontage-assets",
   "prefix": "projects",
   "auto_sync": false,
   "sync_after_stage": false,

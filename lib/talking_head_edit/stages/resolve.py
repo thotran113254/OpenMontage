@@ -15,7 +15,7 @@ from typing import Any
 from lib.talking_head_edit import spine_build
 from lib.talking_head_edit.audio_calibrate import AudioCalibrationError, measure_room
 from lib.talking_head_edit.job_store import (
-    SHARED_PUBLIC, job_input_paths, option_enabled,
+    DEFAULT_OPTIONS, SHARED_PUBLIC, job_input_paths, option_enabled,
 )
 from lib.talking_head_edit.resolve_broll import (
     resolve_broll, speaker_aware_enabled, speaker_segments,
@@ -35,7 +35,7 @@ from lib.talking_head_edit.resolve_cut import (
 )
 from lib.talking_head_edit.resolve_spans import plan_spans
 
-ENDCARD_SECONDS = 2.8
+ENDCARD_SECONDS = 3.6
 
 # Framing presets for the fullscreen A-roll. Inset footage on a backdrop makes
 # an unflattering room read as a deliberate look instead of as the room. "dark"
@@ -87,11 +87,11 @@ def _auto_sharpen(job, options: dict[str, Any], grade: dict[str, Any], source: P
     called a 2.2x difference invisible. Sharpness is not something it can see,
     so its guess must not silently win over a measurement.
 
-    Falls back to the upscale-based estimate if the measurement cannot be taken,
-    because a soft video is a better outcome than a failed render.
+    On measurement failure, retain the requested grade without adding an
+    unmeasured sharpening estimate.
     """
     human_set = "sharpen" in (options.get("grade_overrides") or {})
-    if not option_enabled(options, "auto_sharpen") or human_set:
+    if not option_enabled(options, "auto_sharpen", default=False) or human_set:
         return grade
 
     moments = speaking_moments(words)
@@ -103,7 +103,7 @@ def _auto_sharpen(job, options: dict[str, Any], grade: dict[str, Any], source: P
     except (SharpenCalibrationError, OSError, ValueError) as exc:
         job.emit("warning", "resolve",
                  f"{source.name}: không dò được độ nét ({str(exc)[:80]}) — "
-                 "dùng mức ước theo tỉ lệ phóng")
+                 "giữ thông số chỉnh ảnh đã yêu cầu")
         return grade
 
     report_path = job.dir / (f"sharpen_report_{src_id}.json" if src_id != "s0"
@@ -126,7 +126,7 @@ def _auto_grade_exposure(job, options: dict[str, Any], grade: dict[str, Any], so
     against the actual pixels either. Skipped entirely once a human has
     already covered every key this step would touch.
     """
-    if not option_enabled(options, "auto_grade"):
+    if not option_enabled(options, "auto_grade", default=False):
         return grade
     overrides = options.get("grade_overrides") or {}
     human_keys = {"brightness", "gamma", "warmth"} & overrides.keys()
@@ -198,8 +198,8 @@ def grade_chains_for(job, options: dict[str, Any], spec_grade: dict[str, Any],
     return chains, used
 
 
-BGM_VOLUME_RANGE = (0.15, 0.35)   # library is normalised to -17 LUFS
-BGM_VOLUME_DEFAULT = 0.22
+BGM_VOLUME_RANGE = (0.08, 0.22)   # library is normalised to -17 LUFS; bed under speech
+BGM_VOLUME_DEFAULT = 0.16
 
 
 def _cold_open_events(cold: dict[str, Any], offset: float) -> list[dict[str, Any]]:
@@ -229,7 +229,10 @@ def _cold_open_events(cold: dict[str, Any], offset: float) -> list[dict[str, Any
     # One seam hit only — riser+whoosh 0.5s apart is what listeners call
     # "SFX dồn". Whoosh alone reads as the cut into the main take.
     events.append({"type": "flash", "at": offset, "durSeconds": 0.15})
-    events.append({"type": "sfx", "at": offset, "name": "sfx_whoosh.mp3", "volume": 0.45})
+    # Whoosh on the teaser tail, not on the first phoneme of the main take —
+    # firing at `offset` was masking the first syllable after the join.
+    events.append({"type": "sfx", "at": max(0.05, offset - 0.12),
+                   "name": "sfx_whoosh.mp3", "volume": 0.14})
     return events
 
 
@@ -282,12 +285,11 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
     spec = json.loads(job.spec_path(version).read_text(encoding="utf-8"))
     words, spine = spine_for_director(job)
     sources = source_index(job, spine)
-    probe = state.get("probe", {})
 
     tempo = float(options.get("tempo", 1.06))
     fps = int(options.get("fps", 30))
     width, height = int(options.get("width", 1080)), int(options.get("height", 1920))
-    out_size = aroll_pixel_size(width, height, str(options.get("frame_preset", "dark")))
+    out_size = aroll_pixel_size(width, height, str(options.get("frame_preset", DEFAULT_OPTIONS["frame_preset"])))
 
     # --- cut + grade: this defines the new clock ---------------------------
     # Spans first: which piece of which file plays when. Video is encoded exactly
@@ -366,10 +368,10 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
         start = mapper.at(int(cold["w0"]))
         last_word = max(0, min(len(words) - 1, int(cold["w1"])))
         end_of_line = mapper.at(last_word, use_end=True)
-        # pad only into real silence: a fixed pad drags the next word's first
-        # phoneme into the teaser when the speaker runs the words together
         next_word_at = mapper.at(last_word + 1) if last_word + 1 < len(words) else new_duration
-        end = min(new_duration, end_of_line + max(0.02, min(0.1, next_word_at - end_of_line - 0.02)))
+        # Keep a breath after the hook sentence — but never swallow the next word.
+        trailing = max(0.0, next_word_at - end_of_line - 0.02)
+        end = min(new_duration, end_of_line + min(0.22, max(0.06, trailing * 0.65)))
 
         if end - start >= 1.0:
             total = prepend_teaser(job.src_path, start, end, fps, preset=preset, crf=crf)
@@ -414,16 +416,38 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
     endcard = spec.get("endcard") or {}
     total_seconds = new_duration
     if endcard.get("title"):
-        events.append({"type": "endcard", "at": round(new_duration - 0.15, 3),
-                       "end": round(new_duration + ENDCARD_SECONDS, 3),
-                       "title": endcard["title"], "subtitle": endcard.get("subtitle", "")})
+        freeze_name = "endcard_freeze.jpg"
+        freeze_ok = False
+        try:
+            from lib.talking_head_edit.stills import extract_still
+            freeze_ok = extract_still(
+                job.src_path, job.dir / freeze_name, max(0.0, new_duration - 0.08))
+        except OSError:
+            freeze_ok = False
+        event: dict[str, Any] = {
+            "type": "endcard",
+            "at": round(new_duration, 3),
+            "end": round(new_duration + ENDCARD_SECONDS, 3),
+            "title": endcard["title"],
+            "subtitle": endcard.get("subtitle", ""),
+        }
+        if endcard.get("kicker"):
+            event["kicker"] = endcard["kicker"]
+        if endcard.get("accent"):
+            event["accent"] = endcard["accent"]
+        if freeze_ok:
+            event["freezeSrc"] = freeze_name
+        art = job.dir / "endcard_art.png"
+        if art.exists():
+            event["artSrc"] = art.name
+        events.append(event)
         total_seconds = new_duration + ENDCARD_SECONDS
 
-    frame_preset = str(options.get("frame_preset", "dark"))
-    frame_style = FRAME_PRESETS.get(frame_preset, FRAME_PRESETS["dark"])
+    frame_preset = str(options.get("frame_preset", DEFAULT_OPTIONS["frame_preset"]))
     if frame_preset not in FRAME_PRESETS:
         job.emit("warning", "resolve",
-                 f"Kiểu khung '{frame_preset}' không có — dùng 'dark'")
+                 f"Kiểu khung '{frame_preset}' không có — dùng full khung")
+    frame_style = FRAME_PRESETS.get(frame_preset)
 
     props: dict[str, Any] = {
         # bare name: the render stage stages this file into a per-job public

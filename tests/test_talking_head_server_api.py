@@ -50,7 +50,14 @@ def make_job(client, **options):
 
 class TestHealthAndResources:
     def test_health(self, client):
-        assert client.get("/api/health").json() == {"status": "ok"}
+        assert client.get("/api/health").json() == {"ok": True, "auth": False}
+
+    def test_config_exposes_director_defaults(self, client):
+        data = client.get("/api/config").json()
+        assert "director_model" in data
+        assert isinstance(data["director_model"], str)
+        assert data["director_model"]
+        assert "gateway_configured" in data
 
     def test_resources_only_lists_files_that_exist(self, client):
         data = client.get("/api/resources").json()
@@ -78,6 +85,13 @@ class TestJobLifecycle:
         assert client.submitted[-1].stages == ["render"]
         assert job.load()["options"]["render_scale"] == 0.5
 
+    def test_visuals_queues_design_then_render(self, client):
+        job = make_job(client)
+        response = client.post(f"/api/jobs/{job.job_id}/visuals")
+        assert response.status_code == 200
+        assert client.submitted[-1].stages == ["visuals", "render"]
+        assert client.submitted[-1].use_cache is False
+
     def test_revise_queues_patch_then_recut(self, client):
         job = make_job(client)
         response = client.post(f"/api/jobs/{job.job_id}/revise",
@@ -104,12 +118,39 @@ class TestVersions:
 
         result = client.post(f"/api/jobs/{job.job_id}/rollback", json={"version": 1}).json()
         assert result["version"] == 3, "rollback tạo phiên bản mới, không xoá lịch sử"
+        assert result["reverted_to"] == 1 and result["restored_from"] == 1
         assert job.spec_path(2).exists(), "phiên bản bị rollback vẫn phải còn"
-        assert json.loads(job.spec_path(3).read_text(encoding="utf-8")) == {"events": []}
+        new_spec = json.loads(job.spec_path(3).read_text(encoding="utf-8"))
+        assert new_spec["events"] == []
+        assert not job.props_path(3).exists(), (
+            "props không được copy -- src.mp4 vẫn theo bản cắt mới nhất, cần resolve lại")
+        assert client.submitted[-1].stages == ["resolve"]
+        assert client.submitted[-1].job_id == job.job_id
+
+    def test_rollback_restores_options_a_later_version_changed(self, client):
+        job = make_job(client)
+        job.spec_path(1).write_text('{"events": []}', encoding="utf-8")
+        base_options = job.load()["options"]
+        job.update(current_version=1, versions=[{"version": 1, "kind": "director"}])
+        job.spec_path(2).write_text('{"events": []}', encoding="utf-8")
+        job.update(
+            current_version=2, options={**base_options, "tempo": 1.2},
+            versions=[
+                {"version": 1, "kind": "director"},
+                {"version": 2, "kind": "revise", "options_previous": {"tempo": base_options["tempo"]}},
+            ],
+        )
+
+        result = client.post(f"/api/jobs/{job.job_id}/rollback", json={"version": 1}).json()
+        assert result["options_changed"] == {"tempo": base_options["tempo"]}
+        assert job.load()["options"]["tempo"] == base_options["tempo"]
+        assert result["queue_position"] is not None
 
     def test_rollback_to_missing_version_is_404(self, client):
         job = make_job(client)
-        assert client.post(f"/api/jobs/{job.job_id}/rollback", json={"version": 9}).status_code == 404
+        response = client.post(f"/api/jobs/{job.job_id}/rollback", json={"version": 9})
+        assert response.status_code == 404
+        assert response.json()["code"] == "not_found"
 
 
 class TestMediaAccess:
@@ -169,3 +210,39 @@ class TestProgressStream:
         assert result["version"] == 2
         assert job.props_path(2).exists()
         assert job.load()["versions"][-1]["kind"] == "manual"
+
+
+def test_version_entries_accept_legacy_and_manual_cut_kinds():
+    """A hand-made job with a kind-less version, or a Cắt/Giữ version, must not 500 the job list."""
+    from server.schemas import VersionEntry
+
+    assert VersionEntry(version=1).kind is None
+    assert VersionEntry(version=2, kind="manual_cuts").kind == "manual_cuts"
+
+
+def test_queue_status_schema_matches_the_queue():
+    """An idle queue reports running=None; the schema once demanded a list and 500'd."""
+    from server.schemas import QueueStatusResponse
+
+    assert QueueStatusResponse(running=None, pending=0).running is None
+    assert QueueStatusResponse(running="job-1", pending=2).pending == 2
+
+
+def test_every_shipped_edit_style_fits_the_response_schema():
+    """The schema once required `style_id` while the data says `id`: /api/edit-styles 500'd."""
+    from lib.talking_head_edit.edit_styles import load_all
+    from server.schemas import EditStyleResponse
+
+    styles = load_all()
+    assert styles
+    for style in styles:
+        EditStyleResponse.model_validate(style)
+
+
+def test_every_saved_look_preset_fits_the_response_schema():
+    """created_at is stored as ISO text; a float-typed schema turned /api/look-presets into a 500."""
+    from lib.talking_head_edit.look_presets import load_all
+    from server.schemas import LookPresetResponse
+
+    for preset in load_all():
+        LookPresetResponse.model_validate(preset)

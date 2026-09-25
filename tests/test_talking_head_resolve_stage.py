@@ -121,7 +121,7 @@ class TestColdOpenSwitch:
         offset = round(TEASER_TOTAL - CUT_DURATION, 3)
         # The teaser's own overlays sit inside the offset; the endcard is last.
         endcard = [e for e in props_of(job)["events"] if e["type"] == "endcard"][0]
-        assert endcard["at"] == pytest.approx(TEASER_TOTAL - 0.15, abs=0.01)
+        assert endcard["at"] == pytest.approx(TEASER_TOTAL, abs=0.01)
         assert offset > 0
 
 
@@ -155,25 +155,25 @@ class TestBgmSwitch:
 
 
 class TestAutoSharpenSwitch:
-    def test_measurement_reaches_the_grade_chain_by_default(self, job, stubs):
+    def test_opted_in_measurement_reaches_the_grade_chain(self, job, stubs):
         write_spec(job)
-        resolve_stage.run(job, {})
+        resolve_stage.run(job, {"auto_sharpen": True})
         assert "unsharp=3:3:1.4" in str(stubs["grade_chain"])
 
-    def test_explicit_null_does_not_disable_the_measurement(self, job, stubs):
+    def test_explicit_null_keeps_sharpening_off(self, job, stubs):
         write_spec(job)
         resolve_stage.run(job, {"auto_sharpen": None})
-        assert "unsharp=3:3:1.4" in str(stubs["grade_chain"])
+        assert "unsharp=" not in str(stubs["grade_chain"])
 
-    def test_explicit_false_falls_back_to_the_upscale_estimate(self, job, stubs):
+    def test_explicit_false_keeps_sharpening_off(self, job, stubs):
         write_spec(job)
         resolve_stage.run(job, {"auto_sharpen": False})
-        assert "unsharp=3:3:1.4" not in str(stubs["grade_chain"])
+        assert "unsharp=" not in str(stubs["grade_chain"])
 
     def test_a_human_sharpen_wins_over_the_measurement(self, job, stubs):
         """The director's guess loses to the measurement; a human's does not."""
         write_spec(job)
-        resolve_stage.run(job, {"grade_overrides": {"sharpen": 0.9}})
+        resolve_stage.run(job, {"auto_sharpen": True, "grade_overrides": {"sharpen": 0.9}})
         assert "unsharp=3:3:0.9" in str(stubs["grade_chain"])
 
 
@@ -190,10 +190,10 @@ class TestFramePreset:
         assert "scale=1080:1920" in str(stubs["grade_chain"])
         assert "frame" not in props_of(job)
 
-    def test_unknown_preset_warns_and_falls_back_to_dark(self, job, stubs):
+    def test_unknown_preset_warns_and_falls_back_to_full_frame(self, job, stubs):
         write_spec(job)
         resolve_stage.run(job, {"frame_preset": "khong-co-that"})
-        assert props_of(job)["frame"]["background"] == "dark"
+        assert props_of(job).get("frame") is None
         assert any("khong-co-that" in e["message"] for e in job.read_events()
                    if e["type"] == "warning")
 

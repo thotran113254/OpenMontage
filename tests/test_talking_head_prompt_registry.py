@@ -97,14 +97,41 @@ class TestByteIdenticalGate:
         assert "4 CỔNG RETENTION" in prompt or "Cổng A" in prompt
         assert "edu" in prompt and "hot_take" in prompt
         assert "dead_air" in prompt and "soft_restart" in prompt
-        assert "8-12s" not in prompt or "Không bắt buộc" in prompt
         assert "TRẢ VỀ DUY NHẤT JSON" in prompt
         # Same placeholder surface as v2 so prompt_structure.py needs no fork.
         for needle in ("Đúng 4 card", "giữ nhịp nhanh", "caption ngắn"):
             assert needle in prompt
 
-    def test_structure_v3_is_shipped_default(self):
-        assert prompt_registry.current_version("structure") == "v3"
+    def test_structure_v4_zero_card_bias_is_pinned(self):
+        """v4 is kept as a revert target: unsure → 0 cards. Not the shipped default."""
+        from lib.talking_head_edit.prompt_structure import build_structure_prompt
+
+        prompt = build_structure_prompt(
+            words(12), {**OPTIONS, "card_plan": ""}, PROFILE, version="v4")
+        assert "Không chắc → 0 card" in prompt
+        assert "cards=[]" in prompt
+        assert "edu: 5-8" not in prompt
+
+
+    def test_structure_v6_lets_the_model_choose_density(self):
+        from lib.talking_head_edit.prompt_structure import build_structure_prompt
+
+        prompt = build_structure_prompt(words(12), {**OPTIONS, "card_plan": ""}, PROFILE)
+        assert "TỰ QUYẾT" in prompt or "tự quyết" in prompt.lower() or "do BẠN quyết" in prompt
+        assert "THỨ TỰ ƯU TIÊN" in prompt
+        assert "Không chắc → 0 card" not in prompt
+        assert "4 CỔNG RETENTION" not in prompt
+        assert "<120 từ → 2-4 keyword" not in prompt
+        assert "Clip <120 từ: tối đa 3 punch" not in prompt
+        assert "edu: 5-8" not in prompt
+        assert "TRẢ VỀ DUY NHẤT JSON" in prompt
+        assert "khoảng" in prompt and "giây nói" in prompt
+        assert "ưu tiên hơn mặc định" not in prompt.lower()
+
+        with_plan = build_structure_prompt(words(12), OPTIONS, PROFILE)
+        for needle in ("Đúng 4 card", "giữ nhịp nhanh", "caption ngắn"):
+            assert needle in with_plan
+        assert "YÊU CẦU THẺ CỦA NGƯỜI DÙNG" in with_plan
 
     def test_structure_v3_keeps_broll_hook(self):
         from lib.talking_head_edit.prompt_structure import build_structure_prompt
@@ -141,7 +168,7 @@ class TestByteIdenticalGate:
     def test_captions(self):
         from lib.talking_head_edit.prompt_captions import build_caption_prompt
 
-        assert build_caption_prompt(words(40), 8, 24) == golden("captions")
+        assert build_caption_prompt(words(40), 8, 24, version="v1") == golden("captions")
 
     def test_cut_verify(self):
         """Pinned to v1: v2 deliberately adds the `unsure` verdict, so the gate
@@ -167,7 +194,8 @@ class TestByteIdenticalGate:
             {"type": "flash", "atWord": 9},
         ]}
         assert build_revise_prompt(spec, words(30),
-                                   "bỏ card 2, thêm keyword ở đầu") == golden("revise")
+                                   "bỏ card 2, thêm keyword ở đầu",
+                                   version="v1") == golden("revise")
 
     def test_select_take(self):
         from lib.talking_head_edit.stages.select import build_select_prompt
@@ -191,7 +219,8 @@ class TestCardCountIsNotFormulaic:
         # real guidance line (Ý CHÍNH) over incidental "card" mentions in style-mode
         # prose (structure.v3 lists "card nhiều hơn" under edu mode first).
         for line in prompt.splitlines():
-            if "Ý CHÍNH" in line or "ý chính" in line.lower():
+            if ("Số card do BẠN quyết" in line or "Bạn tự quyết" in line
+                    or "Ý CHÍNH" in line or "ý chính" in line.lower()):
                 return line
         for line in prompt.splitlines():
             if line.startswith("- ") and "card" in line.lower():
@@ -203,14 +232,22 @@ class TestCardCountIsNotFormulaic:
         for banned in ("3-5", "3–5", "thường 3", "mặc định là"):
             assert banned not in bullet, f"vẫn còn mốc số cứng: {banned!r}"
 
-    def test_asks_the_model_to_count_real_points_instead(self):
+    def test_asks_the_model_to_judge_this_clip(self):
         bullet = self._card_bullet(30)
-        assert "Ý CHÍNH" in bullet or "ý chính" in bullet.lower()
-        assert "độc lập" in bullet.lower() or "riêng biệt" in bullet.lower()
+        assert "bạn quyết" in bullet.lower() or "do bạn quyết" in bullet.lower()
+        assert "đọc" in bullet.lower()
 
     def test_explicitly_allows_very_few_cards_for_thin_content(self):
         bullet = self._card_bullet(20)
-        assert "0-1" in bullet or "0-2" in bullet or "ít card" in bullet.lower()
+        assert "0 card" in bullet.lower() or "ít card" in bullet.lower()
+
+    def test_short_talking_head_does_not_force_zero_cards(self):
+        from lib.talking_head_edit.prompt_structure import build_structure_prompt
+
+        prompt = build_structure_prompt(words(40), {})
+        assert "Không chắc → 0 card" not in prompt
+        assert "TỰ QUYẾT" in prompt or "tự quyết" in prompt.lower() or "do BẠN quyết" in prompt
+        assert "0 card" in prompt.lower() or "ít card" in prompt.lower()
 
     def test_explicitly_forbids_padding_a_single_idea_into_many_cards(self):
         """The failure mode a fixed '3-5' invites: splitting one point into
@@ -224,11 +261,12 @@ class TestCardCountIsNotFormulaic:
         assert "gộp" in bullet.lower()
 
     def test_word_count_is_shown_as_scale_context(self):
-        """`n` is already in the spine header the model sees; repeating it here
-        ties the decision to THIS video's actual size, not a generic instruction
-        that reads the same for a 10-word clip and a 10,000-word one."""
-        assert "20 từ" in self._card_bullet(20)
-        assert "200 từ" in self._card_bullet(200)
+        """Scale context lives in duration_hint on the spine header, not a card quota."""
+        from lib.talking_head_edit.prompt_structure import build_structure_prompt
+
+        prompt = build_structure_prompt(words(20), {})
+        assert "20 từ" in prompt
+        assert "hạn ngạch" not in prompt.lower() or "không phải hạn ngạch" in prompt.lower()
 
     def test_an_explicit_card_plan_still_overrides_everything(self):
         """A human's explicit instruction is not a default — it must win outright,
@@ -237,7 +275,7 @@ class TestCardCountIsNotFormulaic:
 
         prompt = build_structure_prompt(words(30), {"card_plan": "Đúng 4 card"})
         assert "Đúng 4 card" in prompt
-        assert "Ý CHÍNH" not in prompt
+        assert "chia nhỏ một ý" not in prompt
 
 
 class TestCardGuidanceRevert:
@@ -253,19 +291,25 @@ class TestCardGuidanceRevert:
         assert "3-5" not in rendered
         assert "40" in rendered
 
-    def test_v2_is_the_shipped_default(self):
-        assert prompt_registry.current_version("card_guidance") == "v2"
+    def test_v6_is_the_shipped_default(self):
+        assert prompt_registry.current_version("card_guidance") == "v6"
+
+    def test_v6_does_not_target_a_card_count(self):
+        rendered = prompt_registry.render("card_guidance", {"n": 40}, version="v6")
+        assert "không" in rendered.lower() and "mục tiêu" in rendered.lower()
+        assert "3-5" not in rendered
 
     def test_reverting_switches_the_rendered_default_back_to_v1(self, sandbox):
         from lib.talking_head_edit.prompt_structure import build_structure_prompt
 
+        original = prompt_registry.current_version("card_guidance")
         prompt_registry.set_current("card_guidance", "v1")
         try:
             prompt = build_structure_prompt(words(40), {})
             assert "thường 3-5 card" in prompt
-            assert "Ý CHÍNH" not in prompt
+            assert "chia nhỏ một ý" not in prompt
         finally:
-            prompt_registry.set_current("card_guidance", "v2")
+            prompt_registry.set_current("card_guidance", original)
 
     def test_a_card_guidance_edit_reruns_direct(self, tmp_path, sandbox):
         """The fingerprint direct's cache key hashes must name `card_guidance`
@@ -343,14 +387,17 @@ class TestOverrides:
         assert prompt_registry.load("captions", "v1").startswith("bản của admin")
 
     def test_new_version_number_auto_increments(self, sandbox):
+        first_ver = prompt_registry.next_version("captions")
+        second_ver = f"v{int(first_ver[1:]) + 1}"
         first = prompt_registry.save_override("captions", "a {{spine}}")
         second = prompt_registry.save_override("captions", "b {{spine}}")
-        assert (first["version"], second["version"]) == ("v2", "v3")
+        assert (first["version"], second["version"]) == (first_ver, second_ver)
 
     def test_saving_makes_it_current_and_records_a_changelog(self, sandbox):
+        expected = prompt_registry.next_version("captions")
         prompt_registry.save_override("captions", "x {{spine}}", note="thử ngắn hơn",
                                      author="tho")
-        assert prompt_registry.current_version("captions") == "v2"
+        assert prompt_registry.current_version("captions") == expected
         entry = prompt_registry.registry()["captions"]
         assert entry["changelog"][-1]["note"] == "thử ngắn hơn"
         assert entry["changelog"][-1]["author"] == "tho"
@@ -377,8 +424,9 @@ class TestOverrides:
         assert "karaoke pill" in prompt_registry.load("captions", "v1")
 
     def test_deleting_the_current_version_falls_back_to_v1(self, sandbox):
-        prompt_registry.save_override("captions", "x {{spine}}")   # v2, current
-        prompt_registry.delete_override("captions", "v2")
+        ver = prompt_registry.next_version("captions")
+        prompt_registry.save_override("captions", "x {{spine}}")
+        prompt_registry.delete_override("captions", ver)
         assert prompt_registry.current_version("captions") == "v1"
 
     def test_deleting_a_missing_override_is_an_error(self, sandbox):
@@ -390,16 +438,15 @@ class TestOverrides:
             prompt_registry.set_current("captions", "v7")
 
     def test_versions_lists_builtin_and_override(self, sandbox):
-        prompt_registry.save_override("captions", "x {{spine}}")
-        rows = prompt_registry.versions("captions")
-        assert [r["version"] for r in rows] == ["v1", "v2"]
-        assert rows[0]["source"] == "builtin"
-        assert rows[1]["source"] == "override"
-        assert rows[1]["is_current"] is True
+        ver = prompt_registry.save_override("captions", "x {{spine}}")["version"]
+        rows = {r["version"]: r for r in prompt_registry.versions("captions")}
+        assert rows["v1"]["source"] == "builtin"
+        assert rows[ver]["source"] == "override"
+        assert rows[ver]["is_current"] is True
 
     def test_diff_against_the_shipped_template(self, sandbox):
-        prompt_registry.save_override("captions", "chỉ một dòng {{spine}}")
-        text = prompt_registry.diff("captions", "v2")
+        ver = prompt_registry.save_override("captions", "chỉ một dòng {{spine}}")["version"]
+        text = prompt_registry.diff("captions", ver)
         assert "chỉ một dòng" in text
         assert text.startswith("---")
 

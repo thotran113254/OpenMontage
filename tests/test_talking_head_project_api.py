@@ -306,6 +306,55 @@ class TestBuilds:
         assert detail["project_id"] == project_id
 
 
+class TestFolderAndPerClipBuilds:
+    def test_create_stores_folder(self, client):
+        project_id = make_project(client, folder="Studio")
+        listed = client.get("/api/projects").json()
+        assert listed[0]["folder"] == "Studio"
+        detail = client.get(f"/api/projects/{project_id}").json()
+        assert detail["folder"] == "Studio"
+
+    def test_folder_can_be_updated(self, client):
+        project_id = make_project(client)
+        client.put(f"/api/projects/{project_id}/settings", json={"folder": "An"})
+        assert client.get(f"/api/projects/{project_id}").json()["folder"] == "An"
+
+    def test_build_can_target_one_clip(self, client):
+        project_id = make_project(client)
+        upload_files(client, project_id, ("clip-a.mp4", "clip-b.mp4"))
+        response = client.post(
+            f"/api/projects/{project_id}/jobs",
+            json={"source_ids": ["s1"], "include_broll": False, "run": False},
+        )
+        assert response.status_code == 200, response.text
+        job_id = response.json()["job_id"]
+        detail = client.get(f"/api/jobs/{job_id}").json()
+        assert detail["source_ids"] == ["s1"]
+        assert len(detail["input_paths"]) == 1
+        builds = client.get(f"/api/projects/{project_id}/jobs").json()
+        assert builds[0]["source_ids"] == ["s1"]
+
+    def test_batch_creates_one_job_per_clip(self, client):
+        project_id = make_project(client)
+        upload_files(client, project_id, ("a.mp4", "b.mp4", "c.mp4"))
+        response = client.post(
+            f"/api/projects/{project_id}/jobs/batch",
+            json={"source_ids": ["s0", "s2"], "run": False, "include_broll": False},
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert len(body["jobs"]) == 2
+        assert body["failed"] == []
+        builds = client.get(f"/api/projects/{project_id}/jobs").json()
+        ids = {tuple(row["source_ids"]) for row in builds}
+        assert ids == {("s0",), ("s2",)}
+
+    def test_batch_without_ids_is_refused(self, client):
+        project_id = make_project(client)
+        response = client.post(f"/api/projects/{project_id}/jobs/batch", json={})
+        assert response.status_code == 400
+
+
 class TestSourceDeletion:
     def test_a_source_in_use_returns_409_naming_the_build(self, client):
         project_id = make_project(client)

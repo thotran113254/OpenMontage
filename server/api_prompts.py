@@ -11,9 +11,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
+from server.schemas import (
+    ABTestRequest, PutOverrideRequest, SetCurrentVersionRequest,
+)
 from lib.talking_head_edit import prompt_ab, prompt_registry
 from lib.talking_head_edit.prompt_registry import PromptError
 
@@ -124,17 +127,16 @@ def render_for_job(job, prompt_id: str, version: str | None = None) -> str:
 
 
 @router.put("/prompts/{prompt_id}")
-async def put_override(prompt_id: str, request: Request) -> dict[str, Any]:
-    payload = await request.json()
-    body = str(payload.get("body") or "")
+def put_override(prompt_id: str, payload: PutOverrideRequest) -> dict[str, Any]:
+    body = str(payload.body or "")
     if len(body) > MAX_BODY_CHARS:
         raise HTTPException(400, f"Prompt quá dài (tối đa {MAX_BODY_CHARS} ký tự)")
     try:
         return prompt_registry.save_override(
-            prompt_id, body, version=payload.get("version"),
-            note=str(payload.get("note") or ""),
-            author=str(payload.get("author") or "admin"),
-            make_current=bool(payload.get("make_current", True)))
+            prompt_id, body, version=payload.version,
+            note=str(payload.note or ""),
+            author=str(payload.author or "admin"),
+            make_current=bool(payload.make_current))
     except PromptError as exc:
         raise _bad(exc) from exc
 
@@ -148,13 +150,11 @@ def delete_override(prompt_id: str, version: str) -> dict[str, Any]:
 
 
 @router.post("/prompts/{prompt_id}/current")
-async def set_current(prompt_id: str, request: Request) -> dict[str, Any]:
-    payload = await request.json()
+def set_current(prompt_id: str, payload: SetCurrentVersionRequest) -> dict[str, Any]:
     try:
-        return prompt_registry.set_current(prompt_id, str(payload.get("version") or ""))
+        return prompt_registry.set_current(prompt_id, str(payload.version or ""))
     except PromptError as exc:
         raise _bad(exc) from exc
-
 
 @router.get("/prompts/{prompt_id}/diff", response_class=PlainTextResponse)
 def diff_prompt(prompt_id: str, version: str = Query(...),
@@ -182,22 +182,15 @@ def estimate_ab(prompt_id: str, job_id: str = Query(...),
 
 
 @router.post("/prompts/{prompt_id}/ab")
-async def run_ab(prompt_id: str, request: Request) -> dict[str, Any]:
-    """Run both versions on the same spine, in the background.
-
-    Queued rather than awaited: two director calls plus two verifier calls is a
-    minute or more, and holding an HTTP connection open for that is how a UI ends
-    up showing a spinner that never resolves.
-    """
+def run_ab(prompt_id: str, payload: ABTestRequest) -> dict[str, Any]:
+    """Run both versions on the same spine, in the background."""
     if prompt_id != "structure":
         raise HTTPException(400, "Hiện chỉ A/B được prompt 'structure'")
-    payload = await request.json()
-    job = _job(str(payload.get("job_id") or ""))
-    version_a = str(payload.get("version_a") or "v1")
-    version_b = str(payload.get("version_b") or "")
+    job = _job(str(payload.job_id or ""))
+    version_a = str(payload.version_a or "v1")
+    version_b = str(payload.version_b or "")
     if not version_b:
         raise HTTPException(400, "Thiếu version_b")
-
     import threading
 
     def work() -> None:

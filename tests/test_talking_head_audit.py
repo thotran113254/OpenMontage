@@ -166,6 +166,27 @@ class TestBgmNormalisation:
         assert bgm is None
         assert error, "mất nhạc thì phải có cảnh báo"
 
+    def test_normalize_cold_open_snaps_to_sentence_end(self):
+        from lib.talking_head_edit.stages.audit import normalize_cold_open
+
+        words = [
+            {"word": "Một"}, {"word": "câu"}, {"word": "hook"}, {"word": "đắt."},
+            {"word": "Tiếp"}, {"word": "theo"},
+        ]
+        cold, notes = normalize_cold_open({"w0": 1, "w1": 2, "caption": "x"}, words)
+        assert cold is not None
+        assert cold["w0"] == 0
+        assert cold["w1"] == 3
+        assert any("biên câu" in n for n in notes)
+
+    def test_normalize_cold_open_drops_too_short(self):
+        from lib.talking_head_edit.stages.audit import normalize_cold_open
+
+        words = [{"word": "a"}, {"word": "b."}]
+        cold, notes = normalize_cold_open({"w0": 0, "w1": 0, "caption": "x"}, words)
+        assert cold is None
+        assert any("cắt cụt" in n for n in notes)
+
     def test_string_bgm_survives_the_full_resource_audit(self):
         spec = {"events": [], "bgm": "bgm_energy_drive.mp3"}
         out, removed = audit_resources(spec, word_count=10)

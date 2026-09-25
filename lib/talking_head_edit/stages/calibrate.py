@@ -52,6 +52,7 @@ from lib.talking_head_edit.calibrate_candidates import (
     AUDIO_CANDIDATES, AUDIO_PROMPT, GRADE_CANDIDATES, GRADE_PROMPT, pick_winner,
 )
 from lib.talking_head_edit.director_client import chat_with_audio, chat_with_images
+from lib.talking_head_edit.job_store import DEFAULT_OPTIONS
 from lib.talking_head_edit.preview import grade_still, preview_audio
 from lib.talking_head_edit.resolve_media import probe_duration
 from lib.talking_head_edit.stages.resolve import aroll_pixel_size
@@ -79,7 +80,7 @@ def calibrate_grade(job, spec_grade: dict[str, Any], at_seconds: float,
     # colour and skin being judged are the ones that ship.
     width, height = aroll_pixel_size(int(options.get("width", 1080)),
                                      int(options.get("height", 1920)),
-                                     str(options.get("frame_preset", "dark")))
+                                     str(options.get("frame_preset", DEFAULT_OPTIONS["frame_preset"])))
     source_width = state.get("probe", {}).get("width")
 
     images: list[tuple[str, Path]] = [(

@@ -31,7 +31,10 @@ export const TranscriptEditor: React.FC<{
   onMarkRange?: (from: number, to: number, action: "cut" | "keep") => void;
   cutRanges?: [number, number][];
   height?: number;
-}> = ({ words, timeOf, onSeek, onMarkRange, cutRanges = [], height = 360 }) => {
+  /** True while a mark-range request is in flight or the job is running —
+   * blocks new selections so a double-click can't fire two overlapping cuts. */
+  disabled?: boolean;
+}> = ({ words, timeOf, onSeek, onMarkRange, cutRanges = [], height = 360, disabled = false }) => {
   const [scrollTop, setScrollTop] = useState(0);
   const [anchor, setAnchor] = useState<number | null>(null);
   const [selection, setSelection] = useState<[number, number] | null>(null);
@@ -53,6 +56,7 @@ export const TranscriptEditor: React.FC<{
   }, [cutRanges]);
 
   const click = (index: number, shiftKey: boolean) => {
+    if (disabled) return;
     if (shiftKey && anchor !== null) {
       const range: [number, number] = anchor <= index ? [anchor, index] : [index, anchor];
       setSelection(range);
@@ -99,7 +103,7 @@ export const TranscriptEditor: React.FC<{
                 cursor: "pointer",
                 padding: "1px 4px",
                 borderRadius: 4,
-                background: selected ? "rgba(56,189,248,0.28)" : "transparent",
+                background: selected ? "color-mix(in srgb, var(--accent) 28%, transparent)" : "transparent",
                 textDecoration: cut ? "line-through" : undefined,
                 opacity: cut ? 0.45 : 1,
                 whiteSpace: "nowrap",
@@ -127,17 +131,19 @@ export const TranscriptEditor: React.FC<{
             </span>
             <button
               className="ghost small"
+              disabled={disabled}
               onClick={() => onMarkRange?.(selection[0], selection[1], "cut")}
             >
               Đánh dấu cắt
             </button>
             <button
               className="ghost small"
+              disabled={disabled}
               onClick={() => onMarkRange?.(selection[0], selection[1], "keep")}
             >
               Giữ lại
             </button>
-            <button className="ghost small" onClick={() => setSelection(null)}>
+            <button className="ghost small" disabled={disabled} onClick={() => setSelection(null)}>
               Bỏ chọn
             </button>
           </>
@@ -151,9 +157,11 @@ export const TranscriptEditor: React.FC<{
           height,
           overflowY: "auto",
           position: "relative",
-          background: "#151922",
+          background: "var(--surface-2)",
           borderRadius: 8,
-          border: "1px solid #2b3240",
+          border: "1px solid var(--line)",
+          opacity: disabled ? 0.6 : 1,
+          pointerEvents: disabled ? "none" : undefined,
         }}
       >
         <div style={{ height: rowCount * ROW_HEIGHT, position: "relative" }}>{rows}</div>

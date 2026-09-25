@@ -1,4 +1,5 @@
 import React from "react";
+import { FlowSteps } from "../components/flow-steps";
 
 type Stage = {
   key: string;
@@ -48,10 +49,21 @@ export const HowItWorksPage: React.FC = () => {
         <button className="ghost small" onClick={() => { window.location.hash = "/projects"; }}>
           ← Về trang chính
         </button>
-        <h2 style={{ marginTop: 10 }}>Cơ chế pipeline auto-edit talking-head</h2>
+        <h2 style={{ marginTop: 10 }}>Hướng dẫn làm short</h2>
+        <div style={{ margin: "12px 0" }}>
+          <FlowSteps
+            steps={[
+              { id: "p", label: "Nhà sáng tạo → project", state: "done" },
+              { id: "u", label: "Upload video", state: "done" },
+              { id: "t", label: "Chọn mẫu & chỉnh", state: "now" },
+              { id: "x", label: "Xuất short", state: "todo" },
+            ]}
+          />
+        </div>
         <p className="muted small">
-          Toàn bộ luồng chạy trong <code>lib/talking_head_edit/</code>, theo đúng thứ tự các stage bên dưới,
-          từ file thô đến video render xong. Trang này mô tả CƠ CHẾ THẬT của hệ thống hiện tại, không phải tài liệu ý định.
+          1. Mở video → <b>Chạy dựng short</b> (xem trước, chưa ra MP4).
+          2. Vào trang bản dựng xem khung → bấm <b>Xuất MP4</b> khi ổn.
+          Kết quả cũng hiện tab <b>Kết quả</b> của project.
         </p>
       </div>
 
@@ -63,14 +75,14 @@ export const HowItWorksPage: React.FC = () => {
           <code>.env</code>:
         </p>
         <ul className="small">
-          <li><code>AUTOEDIT_DIRECTOR_MODEL</code> — model mặc định khi job không tự chỉ định (ví dụ hiện tại: <code>cx/gpt-5.6-luna</code>).</li>
+          <li><code>AUTOEDIT_DIRECTOR_MODEL</code> — model mặc định khi job không tự chỉ định (ví dụ hiện tại: <code>ag/gemini-3.7-flash-high</code> qua 9router).</li>
           <li><code>NINE_ROUTER_BASE_URL</code> / <code>NINE_ROUTER_API_KEY</code> — gateway dùng chung cho mọi model qua router (Gemini, GPT…), có thể override riêng bằng <code>AUTOEDIT_DIRECTOR_BASE_URL</code> / <code>AUTOEDIT_DIRECTOR_API_KEY</code> để trỏ thẳng sang API gốc của hãng khác (vd DeepSeek).</li>
         </ul>
         <p className="small">
           Mỗi job có thể tự ghi đè model riêng (CLI <code>--model</code>, hoặc field <code>options.model</code> khi
           gọi API tạo job) — không ghi đè thì rơi về <code>AUTOEDIT_DIRECTOR_MODEL</code>. Stage <code>Audit</code> có
-          thêm 1 lớp: ô "Model kiểm cắt (verifier)" ở trang Tạo job mới cho phép set <code>verifier_model</code> riêng
-          (rẻ/nhanh hơn) cho việc kiểm cắt — để trống thì dùng chung model với Direct.
+          thêm 1 lớp: ô "Model kiểm cắt (verifier)" cho phép set <code>verifier_model</code> riêng
+          — để trống thì dùng chung <code>AUTOEDIT_DIRECTOR_MODEL</code> (mặc định Gemini 3.7).
         </p>
         <p className="small">
           Mỗi lệnh gọi có tối đa 3 lần thử lại khi lỗi mạng/JSON hỏng, và tự cộng dồn chi phí

@@ -105,7 +105,7 @@ class TestPromptEndpoints:
 
     def test_detail_carries_body_versions_and_placeholders(self, client):
         body = client.get("/api/prompts/structure").json()
-        assert body["body"].startswith("Bạn là video editor")
+        assert body["body"].startswith("Bạn là video editor") or body["body"].startswith("Bạn là editor short-form")
         assert "spine" in body["placeholders"]
         assert any(row["is_current"] for row in body["versions"])
 
@@ -202,6 +202,47 @@ class TestChatEndpoints:
         client.post(f"/api/jobs/{job.job_id}/chat", json={"message": "thử xem"})
         turns = client.get(f"/api/jobs/{job.job_id}/chat").json()["turns"]
         assert turns and turns[0]["applied"] is False
+
+    def test_applied_chat_queues_preview_recut(self, client, monkeypatch):
+        from lib.talking_head_edit.stages import revise as revise_stage
+
+        def stub_revise(job, options):
+            job.update(current_version=2, versions=[
+                {"version": 1, "kind": "director"},
+                {"version": 2, "kind": "revise", "instruction": options.get("revise_instruction")},
+            ])
+            job.spec_path(2).write_text('{"events": []}', encoding="utf-8")
+            return {"version": 2, "report": {"added": 0, "removed": 0, "modified": 0},
+                    "usage": {"total_tokens": 100}}
+
+        monkeypatch.setattr(revise_stage, "run", stub_revise)
+        job = make_job(client)
+        response = client.post(f"/api/jobs/{job.job_id}/chat",
+                               json={"message": "bỏ card cuối"})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["applied"] is True
+        assert body["preview_queued"] is True
+        assert client.submitted[-1].stages == ["audit", "resolve"]
+        assert client.submitted[-1].job_id == job.job_id
+
+    def test_dry_run_chat_does_not_queue_preview(self, client, monkeypatch):
+        from lib.talking_head_edit.stages import revise as revise_stage
+
+        monkeypatch.setattr(revise_stage, "run", lambda job, options: {
+            "version": 2,
+            "report": {"added": 0, "removed": 0, "modified": 0},
+            "usage": {"total_tokens": 50},
+        })
+        job = make_job(client)
+        before = len(client.submitted)
+        response = client.post(
+            f"/api/jobs/{job.job_id}/chat",
+            json={"message": "thử xem", "dry_run": True},
+        )
+        assert response.status_code == 200
+        assert response.json().get("preview_queued") is None
+        assert len(client.submitted) == before
 
 
 class TestAutopilotEndpoint:

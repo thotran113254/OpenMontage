@@ -17,9 +17,20 @@ import subprocess
 import sys
 import threading
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
+from lib.talking_head_edit.cpu_budget import low_priority_prefix
 from lib.talking_head_edit.job_store import REPO_ROOT, JobStore, find_job, list_all_jobs
+from server import webhooks as webhooks_mod
+from server.auth import auth_enabled
+from server.run_status import build_run_status, resolve_base_url
+
+
+def _webhook_payload(job: Any) -> dict[str, Any]:
+    """Same shape `GET /api/runs/{id}` returns -- no `Request` here, so the
+    base URL falls back to `AUTOEDIT_PUBLIC_HOST`/bind address."""
+    return build_run_status(job, base_url=resolve_base_url(None), auth_on=auth_enabled())
 
 
 class AlreadyRunningError(RuntimeError):
@@ -47,7 +58,12 @@ def _pid_alive(pid: int) -> bool:
         os.kill(pid, 0)
     except OSError:
         return False
-    return True
+    # A killed child stays a zombie until its parent reaps it; it runs nothing.
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return True
+    return stat.rsplit(")", 1)[-1].split()[0] != "Z"
 
 
 def _kill_by_pid(pid: int) -> str:
@@ -164,17 +180,23 @@ class JobQueue:
                 process = self._current[1]
                 killed = kill_tree(process)
                 job = self._find(job_id)
-                job.update(status="cancelled")
+                job.mark_cancelled()
                 job.emit("cancelled",
                          message=f"Đã huỷ theo yêu cầu ({killed})")
+                # `_execute`'s own `process.wait()` unblocks once the kill above
+                # lands and its tail fires the webhook — firing here too would
+                # double-deliver it.
                 return True
             if self._adopted and self._adopted[0] == job_id:
                 killed = _kill_by_pid(self._adopted[1])
                 self._adopted = None
                 job = self._find(job_id)
-                job.update(status="cancelled")
+                job.mark_cancelled()
                 job.emit("cancelled",
                          message=f"Đã huỷ tiến trình còn sót từ lần chạy trước ({killed})")
+                # No `_execute` thread is waiting on this orphaned pid in THIS
+                # instance, so nothing else will fire the webhook for it.
+                webhooks_mod.fire_if_terminal(job, _webhook_payload)
                 return True
         # not running yet: drop it from the pending queue
         pending: list[QueuedRun] = []
@@ -189,9 +211,28 @@ class JobQueue:
             self._queue.put(item)
         if removed:
             job = self._find(job_id)
-            job.update(status="cancelled")
+            job.mark_cancelled()
             job.emit("cancelled", message="Đã bỏ khỏi hàng đợi")
+            webhooks_mod.fire_if_terminal(job, _webhook_payload)
         return removed
+
+    def is_busy(self, job_id: str) -> bool:
+        """True if `job_id` is currently running, adopted from a previous
+        server instance, or waiting in the pending queue.
+
+        Used to refuse a concurrent chat/revise/cuts request that would
+        `job.load()` -> modify -> `job.save()` against the same file the
+        queued subprocess is writing (see M5 in the automation-API review).
+        """
+        with self._lock:
+            if self._current and self._current[0] == job_id:
+                return True
+            if self._adopted and self._adopted[0] == job_id:
+                return True
+        # Reading the queue's internal deque directly: `queue.Queue` has no
+        # peek, and this is inherently a best-effort snapshot anyway -- the
+        # job could start running the instant after this check returns.
+        return any(item.job_id == job_id for item in list(self._queue.queue))
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -217,12 +258,20 @@ class JobQueue:
                     job = self._find(run.job_id)
                     job.update(status="failed")
                     job.emit("stage_failed", message=f"Worker lỗi: {exc}")
+                    webhooks_mod.fire_if_terminal(job, _webhook_payload)
                 except Exception:
                     pass
             finally:
                 self._queue.task_done()
 
-    def _execute(self, run: QueuedRun) -> None:
+    def _build_command(self, run: QueuedRun) -> list[str]:
+        """The CLI invocation for one run, low-priority prefix included.
+
+        Split out from `_execute` so a test can swap in a trivial `python -c`
+        command and still exercise the real `low_priority_prefix()` +
+        subprocess-group + `kill_tree` path end to end, without needing an
+        actual pipeline run.
+        """
         command = [sys.executable, "-m", "lib.talking_head_edit.cli", "--job", run.job_id]
         if run.stages:
             # explicit list, not --stage-from: `revise` is an out-of-band stage
@@ -231,7 +280,13 @@ class JobQueue:
         if not run.use_cache:
             command.append("--no-cache")
         command += run.extra_args
+        # `nice`/`ionice` exec in place (same pid), so `kill_tree`'s
+        # `killpg(getpgid(process.pid), ...)` still reaches the whole tree —
+        # this VPS's cores are shared with other projects (see cpu_budget.py).
+        return [*low_priority_prefix(), *command]
 
+    def _execute(self, run: QueuedRun) -> None:
+        command = self._build_command(run)
         environment = {**os.environ, "PYTHONIOENCODING": "utf-8"}
         # Own process group / session, so cancel can signal the whole tree
         # (see kill_tree) rather than just this process.
@@ -268,3 +323,7 @@ class JobQueue:
         if code != 0 and state.get("status") not in ("failed", "cancelled"):
             job.update(status="failed")
             job.emit("stage_failed", message=f"Tiến trình kết thúc với mã {code}")
+        # Covers normal completion/failure AND the "kill while running" cancel
+        # path above — either way this is the one place that reliably observes
+        # the run's actual end.
+        webhooks_mod.fire_if_terminal(job, _webhook_payload)

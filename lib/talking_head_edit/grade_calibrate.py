@@ -28,9 +28,9 @@ FACE_CROP = "crop=iw*0.55:ih*0.36:iw*0.23:ih*0.29"
 BG_CROP = "crop=iw*0.18:ih*0.18:0:0"
 
 TARGET_LUMA = 128.0    # neutral mid-grey target for the mean face-crop luma
-LUMA_DEADBAND = 15.0   # do not correct drift smaller than this
-MAX_GAMMA_CORRECTION = 0.15
-MAX_BRIGHTNESS_CORRECTION = 0.03
+LUMA_DEADBAND = 10.0   # do not correct drift smaller than this
+MAX_GAMMA_CORRECTION = 0.25
+MAX_BRIGHTNESS_CORRECTION = 0.06
 
 # resolve_media.py's own skin-mask comment measured background surfaces at
 # Cr-Cb -3..+9 on its reference footage; take the middle of that band as
@@ -64,9 +64,11 @@ def exposure_correction(luma: float) -> tuple[float, float]:
     brightness add would lift those by the same amount as the shadows.
     """
     if luma < TARGET_LUMA - LUMA_DEADBAND:
-        deficit = min(1.0, (TARGET_LUMA - luma) / TARGET_LUMA)
-        return (round(MAX_BRIGHTNESS_CORRECTION * deficit, 3),
-                round(1.0 + MAX_GAMMA_CORRECTION * deficit, 3))
+        gap = TARGET_LUMA - luma
+        # Progressive response: noticeable lift for dim indoor video without clipping highlights
+        severity = min(1.0, max(0.2, (gap - LUMA_DEADBAND) / 40.0 + 0.25))
+        return (round(MAX_BRIGHTNESS_CORRECTION * severity, 3),
+                round(1.0 + MAX_GAMMA_CORRECTION * severity, 3))
     if luma > TARGET_LUMA + LUMA_DEADBAND:
         excess = min(1.0, (luma - TARGET_LUMA) / (255 - TARGET_LUMA))
         return (round(-MAX_BRIGHTNESS_CORRECTION * excess, 3),

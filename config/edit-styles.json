@@ -1,0 +1,98 @@
+{
+  "styles": [
+    {
+      "id": "talking-head-ban-hang-seed",
+      "title": "Bán hàng — nhanh, có nhạc",
+      "source_project_id": "",
+      "options": {
+        "prompt": "",
+        "topic": "",
+        "card_plan": "",
+        "brand_pill": "",
+        "language": "vi",
+        "tempo": 1.06,
+        "bgm": true,
+        "bgm_name": "bgm_tech_pulse.mp3",
+        "bgm_volume": 0.15,
+        "cold_open": false,
+        "asr_provider": "elevenlabs_scribe",
+        "whisper_model": "medium",
+        "auto_sharpen": false,
+        "auto_grade": false,
+        "auto_audio_preset": true,
+        "audio_preset": "shotgun",
+        "frame_preset": "none"
+      },
+      "created_at": 0,
+      "updated_at": 0
+    },
+    {
+      "id": "talking-head-chia-se-kien-thuc",
+      "title": "Chia sẻ kiến thức — ít thẻ",
+      "source_project_id": "",
+      "options": {
+        "prompt": "",
+        "topic": "",
+        "card_plan": "Chỉ thêm thẻ khi cần đọc list/bước — không ép số lượng",
+        "brand_pill": "",
+        "language": "vi",
+        "tempo": 1.04,
+        "bgm": true,
+        "bgm_name": "bgm_warm_story.mp3",
+        "bgm_volume": 0.12,
+        "cold_open": false,
+        "asr_provider": "elevenlabs_scribe",
+        "whisper_model": "medium",
+        "auto_sharpen": false,
+        "auto_grade": false,
+        "auto_audio_preset": true,
+        "audio_preset": "voice",
+        "frame_preset": "none"
+      },
+      "created_at": 0,
+      "updated_at": 0
+    },
+    {
+      "id": "talking-head-hot-take",
+      "title": "Hot take — hook mạnh",
+      "source_project_id": "",
+      "options": {
+        "prompt": "",
+        "topic": "",
+        "card_plan": "Không thẻ trừ khi có list cần đọc — ưu tiên keyword/punch",
+        "brand_pill": "",
+        "language": "vi",
+        "tempo": 1.08,
+        "bgm": true,
+        "bgm_name": "bgm_tech_pulse.mp3",
+        "bgm_volume": 0.18,
+        "cold_open": true,
+        "hook_prompt": "Câu sốc về chi phí chatbot, trọn câu, không cắt giữa chừng",
+        "asr_provider": "elevenlabs_scribe",
+        "whisper_model": "medium",
+        "auto_sharpen": false,
+        "auto_grade": false,
+        "auto_audio_preset": true,
+        "audio_preset": "shotgun",
+        "frame_preset": "none"
+      },
+      "created_at": 0,
+      "updated_at": 0
+    },
+    {
+      "id": "tu-nhien-giu-nguon-260907-080523",
+      "title": "Tự nhiên — giữ nguồn",
+      "source_project_id": "v2-260830-111350",
+      "options": {
+        "prompt": "Giữ hình ảnh và màu video gốc. Không làm mịn da, không tăng tương phản, không tăng nét. Không shake, flash hoặc punch-in/zoom. Giữ tốc độ nói tự nhiên 1x; chỉ cắt và thêm caption/thẻ khi nội dung cần.",
+        "tempo": 1.0,
+        "cold_open": false,
+        "auto_sharpen": false,
+        "auto_grade": false,
+        "frame_preset": "none"
+      },
+      "created_at": 1788768323.2357028,
+      "updated_at": 1788768323.2357028
+    }
+  ]
+}

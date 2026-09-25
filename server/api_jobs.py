@@ -14,13 +14,20 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Body, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
+from server.schemas import (
+    AutopilotRequest, AutopilotResponse, ChatRequest, ChatResponse,
+    CreateJobRequest, CreateJobResponse, JobDetailResponse, JobSummaryResponse,
+    QueueStatusResponse, ResourceInventoryResponse, ReviseRequest,
+    RunStagesRequest, RunStagesResponse, SpineResponse, UpdatePropsResponse,
+)
 from lib.talking_head_edit.job_store import (
-    DEFAULT_OPTIONS, SHARED_PUBLIC, JobStore, find_job, list_all_jobs,
+    DEFAULT_OPTIONS, SHARED_PUBLIC, JobStore, find_job, list_all_jobs, merge_options,
 )
 from lib.talking_head_edit.resources import inventory
+from server.errors import CodedHTTPException
 from server.paths_guard import check_input_path, safe_media_name
 from server.queue_worker import AlreadyRunningError, JobQueue, QueuedRun
 from server.sse import event_stream
@@ -71,7 +78,21 @@ def _submit(run: QueuedRun) -> int:
         raise HTTPException(409, str(exc)) from exc
 
 
-@router.get("/resources")
+def _ensure_not_busy(job_id: str) -> None:
+    """409 `job_busy` while the queue is running/adopting/holding `job_id`.
+
+    Chat, revise, and the deterministic cuts endpoint all `job.load()` ->
+    modify -> `job.save()` unlocked; running that against the same job.json a
+    queued subprocess is mid-write on can lose the subprocess's update (see M5
+    in the automation-API review).
+    """
+    if job_queue.is_busy(job_id):
+        raise CodedHTTPException(
+            409, f"Job {job_id} đang chạy hoặc đang trong hàng đợi — thử lại sau",
+            code="job_busy")
+
+
+@router.get("/resources", response_model=ResourceInventoryResponse)
 def get_resources() -> dict[str, Any]:
     data = inventory()
     return {
@@ -83,12 +104,12 @@ def get_resources() -> dict[str, Any]:
     }
 
 
-@router.get("/queue")
+@router.get("/queue", response_model=QueueStatusResponse)
 def get_queue() -> dict[str, Any]:
     return job_queue.status()
 
 
-@router.get("/jobs")
+@router.get("/jobs", response_model=list[JobSummaryResponse])
 def list_jobs() -> list[dict[str, Any]]:
     """Every build, from the legacy root and from inside every project.
 
@@ -98,13 +119,12 @@ def list_jobs() -> list[dict[str, Any]]:
     return list_all_jobs(legacy_root=store.root, projects_root=_projects_root())
 
 
-@router.post("/jobs")
-async def create_job(request: Request) -> dict[str, Any]:
-    payload = await request.json()
-    input_path = _check_input_path(payload.get("input_path", ""))
-    options = {**DEFAULT_OPTIONS, **(payload.get("options") or {})}
-    job = store.create(input_path, options, title=payload.get("title", ""))
-    position = _submit(QueuedRun(job.job_id, stages=payload.get("stages")))
+@router.post("/jobs", response_model=CreateJobResponse)
+def create_job(payload: CreateJobRequest) -> dict[str, Any]:
+    input_path = _check_input_path(payload.input_path)
+    options = merge_options(DEFAULT_OPTIONS, payload.options)
+    job = store.create(input_path, options, title=payload.title)
+    position = _submit(QueuedRun(job.job_id, stages=payload.stages))
     return {"job_id": job.job_id, "queue_position": position}
 
 
@@ -134,7 +154,7 @@ def _read_json(path: Path) -> Any:
         return None
 
 
-@router.get("/jobs/{job_id}")
+@router.get("/jobs/{job_id}", response_model=JobDetailResponse)
 def get_job(job_id: str) -> dict[str, Any]:
     job = _job(job_id)
 
@@ -147,11 +167,13 @@ def get_job(job_id: str) -> dict[str, Any]:
         "verify_report": _read_json(job.dir / f"verify_report_v{version}.json"),
         "props": _read_json(job.props_path(version)),
         "has_final": job.final_path.exists(),
+        "has_thumbnail": (job.dir / "thumbnail.jpg").exists(),
+        "visuals_report": _read_json(job.dir / "visuals_report.json"),
         "media_base": f"/api/media/{job_id}/",
     }
 
 
-@router.get("/jobs/{job_id}/spine")
+@router.get("/jobs/{job_id}/spine", response_model=SpineResponse, response_model_exclude_none=True)
 def get_spine(job_id: str) -> dict[str, Any]:
     """The words the director saw, for the transcript editor.
 
@@ -192,47 +214,62 @@ def stream_events(job_id: str, request: Request, offset: int = Query(0)) -> Stre
     )
 
 
-@router.post("/jobs/{job_id}/run")
-async def run_stages(job_id: str, request: Request) -> dict[str, Any]:
-    payload = await request.json() if await request.body() else {}
+@router.post("/jobs/{job_id}/run", response_model=RunStagesResponse)
+def run_stages(job_id: str, payload: RunStagesRequest | None = None) -> dict[str, Any]:
+    if payload is None:
+        payload = RunStagesRequest()
     job = _job(job_id)
-    if payload.get("options"):
+    if payload.options:
         state = job.load()
-        state["options"] = {**state.get("options", {}), **payload["options"]}
+        state["options"] = merge_options(state.get("options", {}), payload.options)
         job.save(state)
     position = _submit(QueuedRun(
-        job_id, stages=payload.get("stages"), use_cache=payload.get("use_cache", True)
+        job_id, stages=payload.stages, use_cache=payload.use_cache
     ))
     return {"job_id": job_id, "queue_position": position}
 
+@router.post("/jobs/{job_id}/visuals", response_model=RunStagesResponse)
+def generate_visuals(job_id: str) -> dict[str, Any]:
+    """LLM-design the outro + generate cover stills, then re-render.
 
-@router.post("/jobs/{job_id}/render")
+    Image generation is a gateway call (30-90s) so this goes through the same
+    worker as render — the UI watches the job stream like any other stage.
+    """
+    _job(job_id)
+    position = _submit(QueuedRun(job_id, stages=["visuals", "render"], use_cache=False))
+    return {"job_id": job_id, "queue_position": position}
+
+
+@router.post("/jobs/{job_id}/render", response_model=RunStagesResponse)
 def render_job(job_id: str, scale: float = 1.0) -> dict[str, Any]:
     job = _job(job_id)
     state = job.load()
-    state["options"] = {**state.get("options", {}), "render_scale": scale}
+    state["options"] = merge_options(state.get("options", {}), {"render_scale": scale})
     job.save(state)
     position = _submit(QueuedRun(job_id, stages=["render"], use_cache=False))
     return {"job_id": job_id, "queue_position": position}
 
 
-@router.post("/jobs/{job_id}/revise")
-async def revise_job(job_id: str, request: Request) -> dict[str, Any]:
+@router.post("/jobs/{job_id}/revise", response_model=RunStagesResponse)
+def revise_job(job_id: str, payload: ReviseRequest) -> dict[str, Any]:
     """Patch the current spec from a plain-language instruction, then re-cut.
 
     Render is deliberately NOT queued: the point of patching is a fast preview
     loop, and the user decides when a version is worth six minutes of render.
     """
-    payload = await request.json()
-    instruction = (payload.get("instruction") or "").strip()
+    instruction = (payload.instruction or "").strip()
     if not instruction:
         raise HTTPException(400, "Thiếu nội dung yêu cầu sửa")
     if len(instruction) > 2000:
         raise HTTPException(400, "Yêu cầu quá dài (tối đa 2000 ký tự)")
 
     job = _job(job_id)
+    _ensure_not_busy(job_id)
     state = job.load()
-    state["options"] = {**state.get("options", {}), "revise_instruction": instruction}
+    opts = merge_options(state.get("options", {}), {"revise_instruction": instruction})
+    if payload.options:
+        opts = merge_options(opts, payload.options)
+    state["options"] = opts
     job.save(state)
     position = _submit(QueuedRun(
         job_id, stages=["revise", "audit", "resolve"], use_cache=False
@@ -240,30 +277,38 @@ async def revise_job(job_id: str, request: Request) -> dict[str, Any]:
     return {"job_id": job_id, "queue_position": position}
 
 
-@router.post("/jobs/{job_id}/autopilot")
-async def autopilot_job(job_id: str, request: Request) -> dict[str, Any]:
+@router.post("/jobs/{job_id}/autopilot", response_model=AutopilotResponse)
+def autopilot_job(job_id: str, payload: AutopilotRequest | None = None) -> dict[str, Any]:
     """Run the chain and fix one known problem, in the background.
 
     Queued rather than awaited: a full pass is minutes, and holding an HTTP
     connection open for a render is how a UI ends up with a spinner that never
     resolves. Progress arrives through the job's SSE stream like every other run.
     """
-    payload = await request.json() if await request.body() else {}
+    if payload is None:
+        payload = AutopilotRequest()
+    if payload.dry_run:
+        # `lib.talking_head_edit.autopilot.run()` has no dry-run mode (it
+        # always executes and can render) — echoing the flag back while
+        # running a real pass anyway would silently do the opposite of what
+        # was asked (see M11 in the automation-API review).
+        raise CodedHTTPException(
+            400, "Autopilot chưa hỗ trợ dry_run — CLI luôn chạy thật, có thể render",
+            code="unsupported")
     job = _job(job_id)
-    if payload.get("options"):
+    if payload.options:
         state = job.load()
-        state["options"] = {**state.get("options", {}), **payload["options"]}
+        state["options"] = merge_options(state.get("options", {}), payload.options)
         job.save(state)
     position = _submit(QueuedRun(
         job_id,
-        # The CLI owns the retry loop, so the queue just runs it as one command.
         extra_args=["--autopilot"] + (
-            ["--stages", ",".join(payload["stages"])] if payload.get("stages") else []),
-        use_cache=payload.get("use_cache", True),
+            ["--stages", ",".join(payload.stages)] if payload.stages else []),
+        use_cache=payload.use_cache,
     ))
     return {"job_id": job_id, "queue_position": position,
-            "follow": f"/api/jobs/{job_id}/events"}
-
+            "follow": f"/api/jobs/{job_id}/events",
+            "dry_run": payload.dry_run}
 
 @router.get("/jobs/{job_id}/chat")
 def chat_history(job_id: str) -> dict[str, Any]:
@@ -273,69 +318,51 @@ def chat_history(job_id: str) -> dict[str, Any]:
     return {"job_id": job_id, "turns": read_history(job)}
 
 
-@router.post("/jobs/{job_id}/chat")
-async def chat_turn(job_id: str, request: Request) -> dict[str, Any]:
-    """One conversational revise turn.
+def _run_chat_turn(job: Any, message: str, *, dry_run: bool = False,
+                    extra_stages: list[str] | None = None,
+                    model: str | None = None) -> dict[str, Any]:
+    """One conversational revise turn — shared by `POST /jobs/{id}/chat` and
+    the automation API's `POST /runs/{id}/revise`, so the model call, the
+    validation, the busy check, and the preview-recut queueing exist in
+    exactly one place.
 
-    Runs inline, unlike autopilot: a revise is one small model call (~8k tokens by
-    design), and the caller wants the diff back to decide what to say next.
+    Revise runs inline (~8k tokens) so the caller gets the diff immediately.
+    When the turn is applied, audit+resolve (+ `extra_stages`, e.g. render for
+    an automation run created with render=true) are queued next.
     """
-    from lib.talking_head_edit.chat_revise import ChatReviseError, chat
+    from lib.talking_head_edit.chat_revise import MAX_MESSAGE_CHARS, ChatReviseError, chat
 
-    payload = await request.json()
-    job = _job(job_id)
+    _ensure_not_busy(job.job_id)
+    text = (message or "").strip()
+    if not text:
+        raise CodedHTTPException(400, "Thiếu tin nhắn chat", code="bad_request")
+    # One limit, not two: `chat()` itself enforces MAX_MESSAGE_CHARS and would
+    # raise first if this endpoint used a different number.
+    if len(text) > MAX_MESSAGE_CHARS:
+        raise CodedHTTPException(
+            400, f"Tin nhắn quá dài (tối đa {MAX_MESSAGE_CHARS} ký tự)", code="bad_request")
+
+    options = {"model": model} if model else None
     try:
-        return chat(job, str(payload.get("message") or ""),
-                    dry_run=bool(payload.get("dry_run")))
+        result = chat(job, text, options=options, dry_run=dry_run)
     except ChatReviseError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        raise CodedHTTPException(400, str(exc), code="revise_failed") from exc
     except Exception as exc:  # noqa: BLE001 — a model refusal is a 400, not a 500
-        raise HTTPException(400, f"Revise thất bại: {exc}") from exc
+        raise CodedHTTPException(400, f"Revise thất bại: {exc}", code="model_refused") from exc
+
+    if result.get("applied") and not dry_run:
+        stages = ["audit", "resolve"] + list(extra_stages or [])
+        position = _submit(QueuedRun(job.job_id, stages=stages, use_cache=False))
+        result["preview_queued"] = True
+        result["queue_position"] = position
+    return result
 
 
-@router.get("/jobs/{job_id}/versions")
-def list_versions(job_id: str) -> dict[str, Any]:
+@router.post("/jobs/{job_id}/chat", response_model=ChatResponse)
+def chat_turn(job_id: str, payload: ChatRequest) -> dict[str, Any]:
+    """One conversational revise turn. See `_run_chat_turn` for the details."""
     job = _job(job_id)
-    state = job.load()
-    current = int(state.get("current_version", 0))
-    versions = []
-    for entry in state.get("versions", []):
-        number = int(entry["version"])
-        versions.append({
-            **entry,
-            "is_current": number == current,
-            "has_props": job.props_path(number).exists(),
-            "diff": _read_json(job.dir / f"revise_diff_v{number}.json"),
-        })
-    return {"current_version": current, "versions": versions}
-
-
-@router.post("/jobs/{job_id}/rollback")
-async def rollback(job_id: str, request: Request) -> dict[str, Any]:
-    """Make an earlier version current again by copying it forward.
-
-    Copying rather than rewinding keeps the history append-only: you can always
-    get back to what you rolled away from.
-    """
-    payload = await request.json()
-    target = int(payload.get("version", 0))
-    job = _job(job_id)
-    if not job.spec_path(target).exists():
-        raise HTTPException(404, f"Không có phiên bản v{target}")
-
-    state = job.load()
-    new_version = int(state.get("current_version", 0)) + 1
-    shutil.copyfile(job.spec_path(target), job.spec_path(new_version))
-    if job.props_path(target).exists():
-        shutil.copyfile(job.props_path(target), job.props_path(new_version))
-    state["current_version"] = new_version
-    state.setdefault("versions", []).append({
-        "version": new_version, "kind": "rollback",
-        "instruction": f"quay lại v{target}", "rolled_back_from": target,
-    })
-    job.save(state)
-    job.emit("log", "edit", f"Quay lại v{target} (tạo v{new_version})")
-    return {"version": new_version, "restored_from": target}
+    return _run_chat_turn(job, payload.message, dry_run=payload.dry_run, model=payload.model)
 
 
 @router.post("/jobs/{job_id}/cancel")
@@ -343,11 +370,10 @@ def cancel_job(job_id: str) -> dict[str, Any]:
     return {"cancelled": job_queue.cancel(job_id)}
 
 
-@router.put("/jobs/{job_id}/props")
-async def save_props(job_id: str, request: Request) -> dict[str, Any]:
+@router.put("/jobs/{job_id}/props", response_model=UpdatePropsResponse)
+def save_props(job_id: str, props: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Save hand-edited props as the next version — no model call involved."""
     job = _job(job_id)
-    props = await request.json()
     state = job.load()
     version = int(state.get("current_version", 0)) + 1
     job.props_path(version).write_text(
@@ -362,7 +388,7 @@ async def save_props(job_id: str, request: Request) -> dict[str, Any]:
     })
     job.save(state)
     job.emit("log", "edit", f"Lưu bản chỉnh tay thành v{version}")
-    return {"version": version}
+    return {"version": version, "job_id": job_id}
 
 
 @router.get("/media/{job_id}/{name}")

@@ -19,7 +19,7 @@ from lib.talking_head_edit.cache import StageCache, hash_inputs
 from lib.talking_head_edit.job_store import STAGES, Job
 from lib.talking_head_edit.stages import (
     audit, calibrate, direct, probe, render, resolve, revise, select, transcribe,
-    verify,
+    verify, visuals,
 )
 
 STAGE_RUNNERS: dict[str, Callable[..., dict[str, Any]]] = {
@@ -35,6 +35,7 @@ STAGE_RUNNERS: dict[str, Callable[..., dict[str, Any]]] = {
     # Not part of the linear pipeline: run explicitly as ["revise","audit","resolve"]
     # when the user asks for a change in words rather than a re-direct.
     "revise": revise.run,
+    "visuals": visuals.run,
 }
 
 
@@ -78,6 +79,7 @@ def cache_signature(stage: str, job: Job, options: dict[str, Any]) -> tuple[str,
 
     if stage == "direct":
         from lib.talking_head_edit import prompt_registry
+        from lib.talking_head_edit.cut_safety import resolve_cut_level
         from lib.talking_head_edit.resources import bgm_table, sfx_table
 
         return hash_inputs({
@@ -101,13 +103,23 @@ def cache_signature(stage: str, job: Job, options: dict[str, Any]) -> tuple[str,
             "model": options.get("model"),
             "topic": options.get("topic"),
             "card_plan": options.get("card_plan"),
+            "hook_prompt": options.get("hook_prompt"),
             "bgm": options.get("bgm"),
             "cold_open": options.get("cold_open"),
+            "cut_level": resolve_cut_level(options),
+            "keyterms": options.get("keyterms"),   # captions.v3 spells these
             "style_profile": _file_hash(Path(options.get("style_profile", "") or "nonexistent")),
         }), [job.spec_path(max(version, 1))]
 
     if stage == "audit":
-        return hash_inputs({"spec": _file_hash(job.spec_path(version))}), [
+        from lib.talking_head_edit.cut_safety import resolve_cut_level
+
+        return hash_inputs({
+            "spec": _file_hash(job.spec_path(version)),
+            "cut_level": resolve_cut_level(options),
+            # audit re-applies the chosen bed, so changing it must re-run audit
+            "bgm": [options.get("bgm"), options.get("bgm_name"), options.get("bgm_volume")],
+        }), [
             job.dir / f"audit_report_v{version}.json"
         ]
 
@@ -130,13 +142,17 @@ def cache_signature(stage: str, job: Job, options: dict[str, Any]) -> tuple[str,
             "brand_pill": options.get("brand_pill"),
             "frame": [options.get("frame_preset"), options.get("frame_overrides")],
             "grade_overrides": options.get("grade_overrides"),
+            "auto_grade": options.get("auto_grade"),
+            "auto_sharpen": options.get("auto_sharpen"),
+            "grade_recipe": _file_hash(Path(__file__).with_name("resolve_media.py")),
             "encode": [options.get("intermediate_preset"), options.get("intermediate_crf")],
-            "audio_preset": options.get("audio_preset"),
+            "audio_preset": [options.get("audio_preset"), options.get("auto_audio_preset")],
         }), [job.src_path, job.props_path(version)]
 
     if stage == "render":
         return hash_inputs({
             "props": _file_hash(job.props_path(version)),
+            "composition": _file_hash(render.COMPOSER_DIR / "src/mona/MonaTimeline.tsx"),
             "scale": options.get("render_scale", 1.0),
             "crf": options.get("render_crf"),
         }), [job.final_path]
@@ -194,6 +210,9 @@ def run_job(job: Job, options: dict[str, Any] | None = None, stages: list[str] |
     results: dict[str, Any] = {}
     for stage in plan:
         results[stage] = run_stage(job, stage, opts, use_cache=use_cache)
+        # A stage may persist option changes (revise does), and the stages
+        # after it in this same run must see them.
+        opts.update(job.load().get("options") or {})
 
     final_state = job.load()
     warnings = any(

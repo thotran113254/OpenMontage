@@ -1,8 +1,7 @@
 """Look and sound RECIPES: the ffmpeg filter chains, and the numbers behind them.
 
-Every constant here is a measurement, not a preference — the comments say what was
-measured and against what. That is the point of the file: these numbers look
-arbitrary and are not, and changing one on taste has cost real quality before.
+Image corrections are opt-in: an empty grade only resizes the footage. Values
+tuned on one recording must not silently become a look for every source.
 
 Which pieces get cut lives in `resolve_spans`, and running ffmpeg over them lives
 in `resolve_cut`. Neither knows how the numbers here were chosen, and dependency
@@ -32,10 +31,6 @@ MAX_SATURATION = 1.03   # above this, skin reads orange before anything else pop
 # Phone footage arrives soft (this source: 2.0 Mbps at 720x1280) and gets
 # upscaled 1.5x, so detail has to be defended rather than assumed.
 SHARPEN_RADIUS = 3      # 5x5 unsharp spreads into a soft halo; 3x3 stays crisp
-# Spatial denoise runs at the SOURCE resolution now (see build_grade_chain), and
-# the upscale that follows smooths on its own, so half the old strength is
-# enough. At the old 1.2 it was scrubbing texture the upscale had just spread.
-DENOISE_SPATIAL = 0.6
 # 720-wide source into a 1012-wide A-roll — the setup every sharpening number
 # here was measured on.
 MEASURED_UPSCALE = 1012 / 720
@@ -46,6 +41,22 @@ MEASURED_UPSCALE = 1012 / 720
 # leads with a high-pass, not with a denoiser.
 AUDIO_PRESETS: dict[str, str] = {
     "off": "",
+    "voice_natural": (
+        "highpass=f=75,"                                    # cut low rumble without eating vocal warmth
+        "afftdn=nr=10:nf=-35:tn=1,"                         # gentle denoise: preserves word endings & natural breath
+        "equalizer=f=220:t=q:w=1.2:g=1.0,"                  # warmth & vocal body (150-250Hz)
+        "equalizer=f=3200:t=q:w=1.5:g=1.2,"                 # presence / clarity
+        "equalizer=f=6000:t=q:w=1.5:g=-1.5,"                # soften harsh sibilance
+        "deesser=i=0.3"                                     # clean de-esser
+    ),
+    "studio_warm": (
+        "highpass=f=80,"
+        "afftdn=nr=12:nf=-34:tn=1,"
+        "equalizer=f=200:t=q:w=1.1:g=1.5,"
+        "equalizer=f=2800:t=q:w=1.4:g=1.0,"
+        "equalizer=f=6500:t=q:w=1.5:g=-2.0,"
+        "deesser=i=0.35"
+    ),
     "voice": (
         "highpass=f=100,"                                   # room rumble
         "afftdn=nr=18:nf=-32:tn=1,"                         # residual steady noise
@@ -111,12 +122,20 @@ def build_audio_master_chain(preset: str = "shotgun") -> str:
     """
     cleanup = AUDIO_PRESETS.get(preset, AUDIO_PRESETS["voice"])
     parts = [cleanup] if cleanup else []
-    parts += [
-        "acompressor=threshold=-20dB:ratio=2.5:attack=8:release=180",
-        "alimiter=limit=0.95",          # catches peaks so loudnorm isn't the only guard
-        "loudnorm=I=-14:TP=-1.5:LRA=11",
-        "aresample=48000",
-    ]
+    if preset in ("voice_natural", "studio_warm"):
+        parts += [
+            "acompressor=threshold=-20dB:ratio=2.0:attack=15:release=180",
+            "alimiter=limit=0.95",
+            "loudnorm=I=-14:TP=-1.5:LRA=11",
+            "aresample=48000",
+        ]
+    else:
+        parts += [
+            "acompressor=threshold=-20dB:ratio=2.5:attack=8:release=180",
+            "alimiter=limit=0.95",          # catches peaks so loudnorm isn't the only guard
+            "loudnorm=I=-14:TP=-1.5:LRA=11",
+            "aresample=48000",
+        ]
     return ",".join(parts)
 
 
@@ -270,101 +289,209 @@ def _blemish_reduce_chain(blemish: float) -> str:
         ";[fsbase][fsout][fsmask]maskedmerge"
     )
 
+def build_selectivecolor_chain(grade: dict[str, Any]) -> str | None:
+    """Targeted per-color HSL tuning via FFmpeg selectivecolor.
+
+    Controls color ranges (reds, yellows, magentas, greens, cyans, blues, whites, neutrals, blacks)
+    with independent brightness (via K channel) and saturation/hue adjustments.
+    Supports named presets ('da-trang-hong', 'khu-am-vang', 'cinema-punchy'),
+    a nested 'hsl' dict, and flat keys (e.g. 'hsl_yellow_sat', 'hsl_yellow_bright').
+    """
+    color_map = {
+        "reds": ("red", "reds"),
+        "yellows": ("yellow", "yellows"),
+        "greens": ("green", "greens"),
+        "cyans": ("cyan", "cyans"),
+        "blues": ("blue", "blues"),
+        "magentas": ("magenta", "magentas", "purples", "purple"),
+        "whites": ("white", "whites"),
+        "neutrals": ("neutral", "neutrals"),
+        "blacks": ("black", "blacks"),
+    }
+
+    presets = {
+        "da-trang-hong": {
+            "yellows": {"saturation": -0.12, "brightness": 0.12, "magenta": 0.04},
+            "reds": {"saturation": 0.15, "brightness": 0.0, "cyan": -0.08},
+            "neutrals": {"brightness": 0.04}
+        },
+        "khu-am-vang": {
+            "yellows": {"saturation": -0.22, "brightness": 0.10, "yellow": -0.08},
+            "neutrals": {"brightness": 0.04, "yellow": -0.05},
+            "reds": {"saturation": 0.10, "brightness": 0.0}
+        },
+        "cinema-punchy": {
+            "reds": {"saturation": 0.20, "brightness": 0.0},
+            "yellows": {"saturation": -0.06, "brightness": 0.08},
+            "magentas": {"saturation": 0.25, "brightness": 0.0},
+            "blues": {"saturation": 0.15, "brightness": -0.05}
+        }
+    }
+
+    hsl_input: dict[str, dict[str, float]] = {}
+    preset_name = grade.get("color_preset") or grade.get("hsl_preset")
+    if preset_name and preset_name in presets:
+        for k, v in presets[preset_name].items():
+            hsl_input[k] = dict(v)
+
+    if isinstance(grade.get("hsl"), dict):
+        for k, v in grade["hsl"].items():
+            if isinstance(v, dict):
+                hsl_input.setdefault(k, {}).update(v)
+
+    for target, aliases in color_map.items():
+        for prefix in ("hsl_", ""):
+            for alias in aliases:
+                sat_key = f"{prefix}{alias}_sat"
+                bright_key = f"{prefix}{alias}_bright"
+                if sat_key in grade or bright_key in grade:
+                    cur = hsl_input.setdefault(target, {})
+                    if sat_key in grade:
+                        try:
+                            cur["saturation"] = float(grade[sat_key])
+                        except (ValueError, TypeError):
+                            pass
+                    if bright_key in grade:
+                        try:
+                            cur["brightness"] = float(grade[bright_key])
+                        except (ValueError, TypeError):
+                            pass
+
+    if not hsl_input:
+        return None
+
+    def _clamp(val: float, low: float = -1.0, high: float = 1.0) -> float:
+        return round(max(low, min(high, float(val))), 3)
+
+    parts = []
+    for target in ("reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks"):
+        data = None
+        for alias in color_map[target]:
+            if alias in hsl_input:
+                data = hsl_input[alias]
+                break
+        if not data or not isinstance(data, dict):
+            continue
+
+        c = float(data.get("c", data.get("cyan", 0.0)))
+        m = float(data.get("m", data.get("magenta", 0.0)))
+        y = float(data.get("y", data.get("yellow", 0.0)))
+        k = float(data.get("k", data.get("black", 0.0)))
+
+        sat = float(data.get("saturation", data.get("sat", 0.0)))
+        bright = float(data.get("brightness", data.get("bright", 0.0)))
+
+        if bright:
+            k -= bright
+
+        if sat:
+            if target == "reds":
+                c -= sat * 0.8
+                m += sat * 0.2
+                y += sat * 0.2
+            elif target == "yellows":
+                y += sat * 0.9
+                c -= sat * 0.1
+            elif target == "magentas":
+                m += sat * 0.9
+                c -= sat * 0.1
+                y -= sat * 0.1
+            elif target == "greens":
+                m -= sat * 0.8
+                y += sat * 0.3
+                c += sat * 0.3
+            elif target == "cyans":
+                c += sat * 0.9
+                m -= sat * 0.1
+            elif target == "blues":
+                y -= sat * 0.8
+                c += sat * 0.3
+                m += sat * 0.3
+
+        c = _clamp(c)
+        m = _clamp(m)
+        y = _clamp(y)
+        k = _clamp(k)
+
+        if (c, m, y, k) != (0.0, 0.0, 0.0, 0.0):
+            parts.append(f"{target}='{c} {m} {y} {k}'")
+
+    if not parts:
+        return None
+    return "selectivecolor=" + ":".join(parts) + ":correction_method=relative"
+
 
 def build_grade_chain(grade: dict[str, Any], width: int, height: int,
                       source_width: int | None = None) -> str:
-    """Beauty chain: denoise → smooth → UPSCALE → tone → colour → sharpen → vignette.
+    """Resize, then apply only requested corrections; preserve source texture.
 
-    Three steps beyond a plain brightness/contrast/saturation pass, because on
-    phone footage of a face in a bright room that pass barely registers:
-
-    * a gentle S-curve with a highlight rolloff — gives the face shape and stops
-      a white ceiling or wall from clipping
-    * `vibrance` instead of leaning on global saturation — it lifts muted colour
-      while leaving skin tones alone, so the face doesn't go orange
-    * a light vignette — pulls the eye to the speaker and quiets a cluttered room
-
-    All three are on by default and tunable per video through the same grade
-    object the director already fills in.
+    Smoothing operates before resizing. No temporal denoising is coupled to
+    skin or blemish controls: it can smear moving faces even at skin_smooth=0.
+    source_width remains available to callers that also use auto calibration.
     """
     skin = float(grade.get("skin_smooth", 0) or 0)
     blemish = float(grade.get("blemish_reduce", 0) or 0)
     warmth = float(grade.get("warmth", 0) or 0)
-    tone = float(grade.get("tone_curve", 1.0) or 0)     # 0 disables the S-curve
-    # Off by default. Measuring the face crop showed saturation — not warmth —
-    # was what turned skin orange, and vibrance stacks on top of it. Turn it on
-    # (0.1-0.2) only for footage that genuinely looks washed out.
-    vibrance = float(grade.get("vibrance", 0.0) or 0)
-    # 1.0 (PI/6) cost 14% of overall brightness — too heavy once the frame
-    # backdrop is already darkening the edges. 0.5 keeps the focus effect.
-    vignette = min(1.4, float(grade.get("vignette", 0.5) or 0))
-    # Contrast-adaptive sharpening: lifts edge micro-contrast without the
-    # bright halo that a strong unsharp leaves around hair and shoulders.
-    auto_sharpen, auto_clarity = default_sharpening(source_width, width)
-    clarity = min(1.0, float(grade.get("clarity", auto_clarity) or 0))
+    tone = float(grade.get("tone_curve", 0) or 0)
+    vibrance = float(grade.get("vibrance", 0) or 0)
+    vignette = min(1.4, float(grade.get("vignette", 0) or 0))
+    sharpen = min(2.0, float(grade.get("sharpen", 0) or 0))
+    clarity = min(1.0, float(grade.get("clarity", 0) or 0))
 
-    # Smoothing now runs before the upscale, on source pixels, where a given
-    # radius covers ~1.5x more of the face than it did at 1080. Scaled back so
-    # the visible amount of smoothing is unchanged by the reorder.
-    luma_radius = round(1.6 + skin * 2.2, 1)
-    luma_strength = round(skin * 0.85, 2)
-    # Fixed, not driven by `blemish_reduce` — see `_blemish_reduce_chain` below
-    # for why blemish now gets its own frequency-separation step instead of a
-    # wider smartblur threshold: a defined blemish/scar is exactly the kind of
-    # local edge smartblur is designed to protect, so no threshold setting
-    # removes it without also blurring hair/eyes.
-    luma_threshold = -12
-    chroma_threshold = -20
-    chroma_strength = round(skin * 0.42, 2)
-    denoise_temporal = round(4 + blemish * 6, 1)
-    # Warmth used to push red up and blue down by the same amount, which is
-    # what actually burned the skin yellow: the blue channel in the face lost
-    # 29%. Half the push, and only half of that taken out of blue.
-    red_mid = round(warmth / 100 * 0.2, 3)
-    blue_mid = round(-red_mid * 0.5, 3)
-
-    # Order matters more than the strengths here. Denoising AFTER the upscale
-    # meant the denoiser was working on pixels lanczos had just interpolated,
-    # so it scrubbed away invented and real detail alike; sharpening then had
-    # nothing left to lift. Clean at source resolution, THEN enlarge.
-    # `full_chroma_int` is not decoration: the source is yuv420p, so chroma
-    # arrives at 360x640 and its interpolation is what softens face edges.
-    parts = [
-        f"hqdn3d={DENOISE_SPATIAL}:{DENOISE_SPATIAL}:"
-        f"{denoise_temporal}:{denoise_temporal}",
-        f"smartblur=luma_radius={luma_radius}:luma_strength={luma_strength}:"
-        f"luma_threshold={luma_threshold}:chroma_radius={luma_radius}:"
-        f"chroma_strength={chroma_strength}:chroma_threshold={chroma_threshold}",
-    ]
+    parts = []
+    if skin > 0:
+        # Natural gentle skin softening: scaled so low values preserve pore texture
+        clamped_skin = min(0.4, skin)
+        radius = round(1.2 + clamped_skin * 1.8, 1)
+        luma_strength = round(clamped_skin * 0.65, 2)
+        chroma_strength = round(clamped_skin * 0.35, 2)
+        parts.append(
+            f"smartblur=luma_radius={radius}:luma_strength={luma_strength}:"
+            f"luma_threshold=-12:chroma_radius={radius}:"
+            f"chroma_strength={chroma_strength}:chroma_threshold=-20"
+        )
     if blemish > 0:
         parts.append(_blemish_reduce_chain(blemish))
     parts.append(f"scale={width}:{height}:flags=lanczos+accurate_rnd+full_chroma_int")
 
     if tone > 0:
-        # shadows down / midtones up / highlights eased off 1.0, scaled by `tone`
         shadow = round(0.25 - 0.01 * tone, 4)
         midtone = round(0.5 + 0.03 * tone, 4)
         upper = round(0.78 + 0.02 * tone, 4)
         ceiling = round(1 - 0.04 * tone, 4)
         parts.append(f"curves=all='0/0 0.25/{shadow} 0.5/{midtone} 0.78/{upper} 1/{ceiling}'")
 
-    # Saturation is capped: on this footage 1.08 put the face 10 points of warm
-    # bias above the source and read as "cháy vàng". Skin turns orange long
-    # before the rest of the picture looks saturated.
-    saturation = min(MAX_SATURATION, float(grade.get("saturation", 1) or 1))
-    parts.append(
-        f"eq=brightness={grade.get('brightness', 0)}:contrast={grade.get('contrast', 1)}:"
-        f"saturation={round(saturation, 3)}:gamma={grade.get('gamma', 1)}"
-    )
+    brightness = float(grade.get("brightness", 0))
+    contrast = float(grade.get("contrast", 1))
+    saturation = min(MAX_SATURATION, float(grade.get("saturation", 1)))
+    gamma = float(grade.get("gamma", 1))
+    if (brightness, contrast, saturation, gamma) != (0, 1, 1, 1):
+        parts.append(
+            f"eq=brightness={brightness}:contrast={contrast}:"
+            f"saturation={round(saturation, 3)}:gamma={gamma}"
+        )
     if vibrance > 0:
         parts.append(f"vibrance=intensity={round(vibrance, 3)}")
-    parts.append(f"colorbalance=rm={red_mid}:bm={blue_mid}")
-    # On by default, sized to the upscale (see default_sharpening). 1.2 looked
-    # right when judged on a graded still, but stills lie: measured on the
-    # rendered deliverable it was worth +14% over the old build while 1.6 —
-    # with skin_smooth eased to ~0.08 — was worth +106%. Two x264 passes
-    # quantise away most of what a gentle sharpen adds.
-    sharpen = min(2.0, float(grade.get("sharpen", auto_sharpen) or 0))
+    if warmth:
+        red_mid = round(warmth / 100 * 0.2, 3)
+        blue_mid = round(-red_mid * 0.5, 3)
+        parts.append(f"colorbalance=rm={red_mid}:bm={blue_mid}")
+    selective = build_selectivecolor_chain(grade)
+    if selective:
+        parts.append(selective)
+
+    lut_ref = grade.get("lut") or grade.get("lut_path")
+    if lut_ref:
+        lut_path = Path(lut_ref)
+        if not lut_path.exists():
+            # Check under repo root luts/ directory
+            repo_luts = Path(__file__).resolve().parent.parent.parent / "luts"
+            candidate = repo_luts / (lut_ref if str(lut_ref).endswith(".cube") else f"{lut_ref}.cube")
+            if candidate.exists():
+                lut_path = candidate
+        if lut_path.exists():
+            safe_lut = str(lut_path.resolve()).replace("\\", "/").replace(":", "\\:")
+            parts.append(f"lut3d=file='{safe_lut}':interp=tetrahedral")
     if sharpen > 0:
         parts.append(
             f"unsharp={SHARPEN_RADIUS}:{SHARPEN_RADIUS}:{sharpen}:"
@@ -373,7 +500,6 @@ def build_grade_chain(grade: dict[str, Any], width: int, height: int,
     if clarity > 0:
         parts.append(f"cas=strength={round(clarity, 3)}")
     if vignette > 0:
-        # PI/6 at full strength reads as "lit", not as a dark tunnel
         parts.append(f"vignette=angle=PI/{round(6 / max(0.05, vignette), 2)}:mode=forward")
 
     return ",".join(parts)
