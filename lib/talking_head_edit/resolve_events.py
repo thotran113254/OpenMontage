@@ -206,7 +206,7 @@ def resolve_events(spec: dict[str, Any], mapper: TimeMapper) -> tuple[list[dict[
             elif kind == "sfx":
                 start = max(0.0, mapper.at(int(event["atWord"])) + float(event.get("offsetSec", 0)))
                 events.append({"type": "sfx", "at": round(start, 3), "name": event["name"],
-                               "volume": float(event.get("volume", 0.5))})
+                               "volume": float(event.get("volume", 0.18))})
 
             elif kind == "shake":
                 events.append({"type": "shake", "at": mapper.at(int(event["atWord"])),

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 from lib.talking_head_edit.job_store import REPO_ROOT
@@ -46,17 +45,25 @@ def inventory() -> dict[str, Any]:
 
     sfx = present(data.get("sfx", []), "SFX")
     bgm = present(data.get("bgm", []), "BGM")
+    known = {entry["name"] for entry in bgm}
+    for path in sorted(PUBLIC_DIR.glob("bgm_user_*.mp3")):
+        if path.name not in known:
+            bgm.append({"name": path.name, "group": "user", "mood": "đã tải"})
 
     declared = {e["name"] for e in data.get("sfx", [])} | {e["name"] for e in data.get("bgm", [])}
     for path in sorted(list(PUBLIC_DIR.glob("sfx_*.mp3")) + list(PUBLIC_DIR.glob("bgm_*.mp3"))):
+        if path.name.startswith("bgm_user_"):
+            continue
         if path.name not in declared:
             warnings.append(
                 f"'{path.name}' có trên đĩa nhưng chưa khai trong resource-manifest.json "
                 "— renderer sẽ bỏ qua"
             )
 
+    labels = dict(data.get("groupLabels") or {})
+    labels.setdefault("user", "Nhạc tự tải")
     return {"sfx": sfx, "bgm": bgm, "warnings": warnings,
-            "group_labels": data.get("groupLabels", {})}
+            "group_labels": labels}
 
 
 def usable_sfx() -> list[str]:
@@ -65,6 +72,12 @@ def usable_sfx() -> list[str]:
 
 def usable_bgm() -> list[str]:
     return [entry["name"] for entry in inventory()["bgm"]]
+
+
+def refresh() -> None:
+    """Drop cached inventory after a user uploads or deletes a BGM file."""
+    manifest.cache_clear()
+    inventory.cache_clear()
 
 
 def sfx_table() -> str:

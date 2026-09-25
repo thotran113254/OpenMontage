@@ -32,6 +32,10 @@ PRESETS_PATH = REPO_ROOT / "config" / "look-presets.json"
 ALLOWED_KEYS = frozenset({
     "skin_smooth", "blemish_reduce", "warmth", "tone_curve", "vibrance",
     "vignette", "brightness", "contrast", "saturation", "gamma",
+    "color_preset", "hsl_preset", "hsl", "lut", "lut_path",
+    "hsl_red_sat", "hsl_red_bright", "hsl_yellow_sat", "hsl_yellow_bright",
+    "hsl_magenta_sat", "hsl_magenta_bright", "hsl_green_sat", "hsl_green_bright",
+    "hsl_blue_sat", "hsl_blue_bright",
 })
 # Refused even though `build_grade_chain` reads them: baking either into a
 # reusable preset defeats per-source auto-sharpening on every future video.
@@ -81,11 +85,20 @@ def validate(grade: Any) -> dict[str, float]:
     unknown = grade.keys() - ALLOWED_KEYS
     if unknown:
         raise LookPresetError(f"Khoá grade không hợp lệ: {sorted(unknown)}")
-    cleaned: dict[str, float] = {}
+    cleaned: dict[str, Any] = {}
     for key, value in grade.items():
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise LookPresetError(f"Giá trị '{key}' phải là số, nhận {value!r}")
-        cleaned[key] = value
+        if key in ("hsl",):
+            if not isinstance(value, dict):
+                raise LookPresetError(f"Giá trị '{key}' phải là dict, nhận {value!r}")
+            cleaned[key] = value
+        elif key in ("color_preset", "hsl_preset", "lut", "lut_path"):
+            if not isinstance(value, str):
+                raise LookPresetError(f"Giá trị '{key}' phải là chuỗi, nhận {value!r}")
+            cleaned[key] = value.strip()
+        else:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise LookPresetError(f"Giá trị '{key}' phải là số, nhận {value!r}")
+            cleaned[key] = value
     return cleaned
 
 

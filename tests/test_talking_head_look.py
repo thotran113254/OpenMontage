@@ -18,10 +18,14 @@ def chain(**grade) -> str:
 
 
 class TestGradeChain:
-    def test_tone_curve_and_vignette_are_on_by_default(self):
+    def test_an_empty_grade_only_resizes(self):
+        """Footage is preserved unless a correction is asked for."""
+        assert chain() == "scale=1080:1920:flags=lanczos+accurate_rnd+full_chroma_int"
+
+    def test_a_basic_grade_adds_no_unrequested_look(self):
         result = chain(brightness=0.02, contrast=1.05, gamma=1.0)
-        assert "curves=" in result
-        assert "vignette=" in result
+        assert "eq=brightness=0.02" in result
+        assert "curves=" not in result and "vignette=" not in result
 
     def test_vibrance_is_off_until_asked_for(self):
         """It stacks on the director's saturation, which is what turned skin orange."""
@@ -38,7 +42,8 @@ class TestGradeChain:
         assert "saturation=1.01" in result
 
     def test_filters_are_ordered_tone_then_colour_then_sharpen(self):
-        result = chain(vibrance=0.2, sharpen=0.6)
+        result = chain(tone_curve=1, brightness=0.02, vibrance=0.2, sharpen=0.6,
+                       clarity=0.4, vignette=0.5)
         order = [result.index(f) for f in
                  ("curves=", "eq=", "vibrance=", "unsharp=", "cas=", "vignette=")]
         assert order == sorted(order), "sai thứ tự sẽ ra màu khác hẳn"
@@ -49,16 +54,10 @@ class TestGradeChain:
         assert "unsharp=3:3:0.6:3:3:0.0" in result
         assert "cas=strength=0.4" in result
 
-    def test_sharpening_is_on_by_default(self):
-        """The whole pipeline upscales 720p phone footage; soft is not a default.
-
-        The level is set from measurements on the rendered deliverable, not on
-        a graded still: two x264 passes quantise away most of a gentle sharpen,
-        so the still-level optimum reached the viewer as a 14% improvement.
-        """
+    def test_sharpening_is_off_by_default(self):
+        """Upscaled phone footage is left as shot; `auto_sharpen` opts back in."""
         result = build_grade_chain({}, 1012, 1800, source_width=720)
-        assert "unsharp=3:3:1.6:3:3:0.0" in result
-        assert "cas=strength=0.85" in result
+        assert "unsharp=" not in result and "cas=" not in result
 
     def test_sharpening_scales_down_when_there_is_nothing_to_enlarge(self):
         """Native-resolution footage has real detail; the same push makes halos."""
@@ -84,14 +83,9 @@ class TestGradeChain:
         assert "unsharp=" not in result
         assert "cas=" not in result
 
-    def test_denoise_runs_before_the_upscale_not_after(self):
-        """Denoising interpolated pixels scrubbed the detail sharpening needs.
-
-        Measured on a 1:1 face crop of the deliverable: this order plus the
-        matching sharpen took shipped sharpness from 1.29 to 2.0.
-        """
-        result = chain()
-        assert result.index("hqdn3d=") < result.index("scale=1080:1920")
+    def test_smoothing_runs_before_the_upscale_and_sharpening_after(self):
+        """Correcting source pixels covers proportionally more face per unit of blur."""
+        result = chain(skin_smooth=0.3, sharpen=0.5)
         assert result.index("smartblur=") < result.index("scale=1080:1920")
         assert result.index("scale=1080:1920") < result.index("unsharp=")
 
@@ -100,14 +94,14 @@ class TestGradeChain:
         assert "full_chroma_int" in chain()
 
     def test_each_extra_can_be_switched_off(self):
-        result = chain(tone_curve=0, vibrance=0, vignette=0)
+        result = chain(brightness=0.02, tone_curve=0, vibrance=0, vignette=0)
         assert "curves=" not in result
         assert "vibrance=" not in result
         assert "vignette=" not in result
         assert "eq=" in result, "phần grade cơ bản vẫn phải còn"
 
     def test_highlight_rolloff_keeps_whites_below_clipping(self):
-        result = chain()
+        result = chain(tone_curve=1)
         curve = result.split("curves=all='")[1].split("'")[0]
         assert curve.endswith("1/0.96"), "trần sáng phải được kéo xuống dưới 1.0"
 
@@ -131,17 +125,18 @@ class TestGradeChain:
         assert abs(blue) < abs(red), "kênh xanh không được bị dìm ngang mức đẩy đỏ"
         assert abs(blue) == pytest.approx(red * 0.5, abs=0.005)
 
-    def test_default_vignette_stays_gentle(self):
+    def test_half_strength_vignette_stays_gentle(self):
         """Measured against the source: full strength cost 14% of brightness."""
-        angle = float(chain().split("vignette=angle=PI/")[1].split(":")[0])
-        assert angle == pytest.approx(12.0, abs=0.1), "vignette mặc định = nửa mức tối đa"
+        angle = float(chain(vignette=0.5).split("vignette=angle=PI/")[1].split(":")[0])
+        assert angle == pytest.approx(12.0, abs=0.1)
 
     def test_skin_smoothing_scales_with_the_requested_amount(self):
         def strength(amount: float) -> float:
             return float(chain(skin_smooth=amount)
                          .split("luma_strength=")[1].split(":")[0])
 
-        assert strength(0.6) > strength(0.1) > strength(0)
+        assert strength(0.6) > strength(0.1)
+        assert "smartblur=" not in chain(skin_smooth=0)
 
     def test_smoothing_is_dialled_back_for_running_at_source_resolution(self):
         """A radius on 720p pixels covers ~1.5x more face than the same at 1080."""
@@ -154,8 +149,9 @@ class TestGradeChain:
         the outlines") — no threshold setting removes one without also
         blurring hair/eyes. `blemish_reduce` drives frequency separation
         instead (see the tests below); the smartblur threshold stays fixed."""
-        assert chain(blemish_reduce=1.0).split("luma_threshold=")[1].split(":")[0] == "-12"
-        assert chain(blemish_reduce=0.0).split("luma_threshold=")[1].split(":")[0] == "-12"
+        for amount in (1.0, 0.0):
+            result = chain(skin_smooth=0.3, blemish_reduce=amount)
+            assert result.split("luma_threshold=")[1].split(":")[0] == "-12"
 
     def test_blemish_reduce_off_skips_the_frequency_separation_chain(self):
         """Zero cost when the feature isn't used — matches every other
@@ -324,11 +320,11 @@ class TestNullOptionsDoNotDisableFeatures:
 
         for options in ({}, {"cold_open": None, "bgm": None}):
             prompt = build_structure_prompt(words, options)
-            assert "người dùng tắt cold-open" not in prompt, options
+            assert '"cold_open": null (người dùng tắt' not in prompt, options
             assert "người dùng tắt nhạc nền" not in prompt, options
 
         off = build_structure_prompt(words, {"cold_open": False, "bgm": False})
-        assert "người dùng tắt cold-open" in off
+        assert '"cold_open": null (người dùng tắt' in off
         assert "người dùng tắt nhạc nền" in off
 
     def test_preview_context_still_reads_the_measurement(self, tmp_path):
@@ -343,8 +339,46 @@ class TestNullOptionsDoNotDisableFeatures:
         (job.dir / "sharpen_report.json").write_text(
             json.dumps({"sharpen": 1.5, "clarity": 0.85}), encoding="utf-8")
 
-        job.update(options={**job.load()["options"], "auto_sharpen": None})
+        # auto_sharpen is opt-in: null means "not set", which is off.
+        job.update(options={**job.load()["options"], "auto_sharpen": True})
         assert preview.render_grade_context(job)["sharpen_source"] == "measured"
 
-        job.update(options={**job.load()["options"], "auto_sharpen": False})
-        assert preview.render_grade_context(job)["sharpen_source"] == "estimated"
+        job.update(options={**job.load()["options"], "auto_sharpen": None})
+        assert preview.render_grade_context(job)["sharpen_source"] != "measured"
+
+
+class TestHslAndLutAndNaturalAudio:
+    def test_selectivecolor_hsl_preset_string(self):
+        from lib.talking_head_edit.resolve_media import build_selectivecolor_chain
+        chain_str = build_selectivecolor_chain({"color_preset": "da-trang-hong"})
+        assert chain_str is not None
+        assert "selectivecolor=" in chain_str
+        assert "reds=" in chain_str
+        assert "yellows=" in chain_str
+
+    def test_selectivecolor_custom_hsl_string(self):
+        from lib.talking_head_edit.resolve_media import build_selectivecolor_chain
+        chain_str = build_selectivecolor_chain({
+            "hsl": {
+                "yellows": {"saturation": -0.2, "brightness": 0.15},
+                "magentas": {"saturation": 0.25, "brightness": 0.0},
+            }
+        })
+        assert chain_str is not None
+        assert "yellows=" in chain_str
+        assert "magentas=" in chain_str
+
+    def test_curated_lut_included_in_grade_chain(self):
+        from lib.talking_head_edit.resolve_media import build_grade_chain
+        chain = build_grade_chain({"lut": "clean_bright"}, 64, 96)
+        assert "lut3d=file=" in chain
+        assert "clean_bright.cube" in chain
+
+    def test_voice_natural_uses_gentle_denoise_without_compand(self):
+        from lib.talking_head_edit.resolve_media import AUDIO_PRESETS, build_audio_chain
+        assert "voice_natural" in AUDIO_PRESETS
+        assert "afftdn=nr=10" in AUDIO_PRESETS["voice_natural"]
+        assert "compand=" not in AUDIO_PRESETS["voice_natural"]
+        assert "agate=" not in AUDIO_PRESETS["voice_natural"]
+        chain = build_audio_chain("voice_natural", 1.0)
+        assert "ratio=2.0:attack=15" in chain

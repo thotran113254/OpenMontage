@@ -15,6 +15,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from lib.talking_head_edit.cut_safety import (
+    USER_CUT, count_malformed, current_proposals, normalize_cut_proposals,
+)
+
+# Marks the cuts THIS patch asked for, so the version's outcome can say what
+# happened to them rather than to every cut the video has ever had.
+NEW_CUT = "moi"
+
 ANCHOR_FIELDS = ("w0", "atWord")
 
 
@@ -49,8 +57,13 @@ def _find(events: list[dict[str, Any]], target: dict[str, Any]) -> tuple[list[in
     return hits, ""
 
 
-def apply_patch(spec: dict[str, Any], patch: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Return (new spec, report). The input spec is never mutated."""
+def apply_patch(spec: dict[str, Any], patch: dict[str, Any],
+                trust_user_cuts: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return (new spec, report). The input spec is never mutated.
+
+    `trust_user_cuts` is for the user's own marked ranges only. A model's patch
+    may not label its cuts as the user's: that label skips the verifier.
+    """
     events = [dict(event) for event in spec.get("events") or []]
     report: dict[str, Any] = {"removed": 0, "added": 0, "modified": 0,
                               "top_level_changed": [], "errors": []}
@@ -89,10 +102,60 @@ def apply_patch(spec: dict[str, Any], patch: dict[str, Any]) -> tuple[dict[str, 
         if key in ("cold_open", "endcard", "bgm", "grade", "cut_remove"):
             new_spec[key] = value
             report["top_level_changed"].append(key)
+            if key == "cut_remove":   # a full replacement, proposals included
+                new_spec["cut_proposed"] = [{**entry, NEW_CUT: True} for entry in
+                                            _as_ai(normalize_cut_proposals(value or []))]
         else:
             report["errors"].append(f"set: không cho phép sửa khoá '{key}'")
 
+    if patch.get("cut_add") or patch.get("cut_restore"):
+        for key in ("cut_add", "cut_restore"):
+            if skipped := count_malformed(patch.get(key) or []):
+                report["errors"].append(f"{key}: bỏ {skipped} đoạn sai dạng")
+        added = normalize_cut_proposals(patch.get("cut_add") or [])
+        new_spec["cut_proposed"], report["cuts_added"], report["cuts_restored"] = _patch_cuts(
+            new_spec, added if trust_user_cuts else _as_ai(added), patch.get("cut_restore") or [])
+        if "cut_remove" not in report["top_level_changed"]:
+            report["top_level_changed"].append("cut_remove")
+
     return new_spec, report
+
+
+def _as_ai(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{**entry, "nguon": "ai"} for entry in entries]
+
+
+def _patch_cuts(spec: dict[str, Any], add: list[dict[str, Any]],
+                restore: list[Any]) -> tuple[list[dict[str, Any]], int, int]:
+    """Add cuts to, and take ranges back out of, the proposals `audit` decides on.
+
+    Adds and restores are relative to what is already there — a revise that asks
+    for one more cut must not wipe the cuts the user already approved. A user
+    cut on a range the director already proposed upgrades that proposal.
+    """
+    proposals = current_proposals(spec)
+    keep_ranges = [entry["w"] for entry in normalize_cut_proposals(restore)]
+
+    def overlaps(span: list[int]) -> bool:
+        return any(not (span[1] < a or span[0] > b) for a, b in keep_ranges)
+
+    kept = [{k: v for k, v in p.items() if k != NEW_CUT}
+            for p in proposals if not overlaps(p["w"])]
+    restored = len(proposals) - len(kept)
+    by_span = {tuple(p["w"]): p for p in kept}
+    added = 0
+    for entry in add:
+        existing = by_span.get(tuple(entry["w"]))
+        if existing is None:
+            entry = {**entry, NEW_CUT: True}
+            kept.append(entry)
+            by_span[tuple(entry["w"])] = entry
+            added += 1
+        elif entry.get("nguon") == USER_CUT:
+            existing.update({"nguon": USER_CUT, NEW_CUT: True,
+                             "ly_do": entry.get("ly_do", existing.get("ly_do"))})
+            added += 1
+    return sorted(kept, key=lambda p: p["w"]), added, restored
 
 
 def diff_specs(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:

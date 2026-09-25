@@ -19,8 +19,9 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from lib.talking_head_edit.cpu_budget import low_priority_prefix
 from lib.talking_head_edit.cache import hash_inputs
-from lib.talking_head_edit.job_store import REPO_ROOT, Job, option_enabled
+from lib.talking_head_edit.job_store import DEFAULT_OPTIONS, REPO_ROOT, Job, option_enabled
 from lib.talking_head_edit.resolve_media import (
     AUDIO_PRESETS, build_audio_chain, build_grade_chain, probe_duration,
 )
@@ -57,23 +58,9 @@ def _measured_sharpen(job: Job) -> dict[str, float] | None:
 
 
 def render_grade_context(job: Job, options: dict[str, Any] | None = None) -> dict[str, Any]:
-    """The size and sharpening the next resolve will actually apply.
+    """Match resolve's display size and opt-in measured sharpening.
 
-    A preview that ignores these is softer than the render it is meant to
-    approve, and softness is exactly what people look at when judging skin.
-    Two things diverge if left to defaults:
-
-    * With `frame_preset` "dark" the A-roll is encoded at 1012x1800, not
-      1080x1920 — a different scale factor, so a different amount of
-      interpolation before the sharpen ever runs.
-    * `source_width` is what `default_sharpening` sizes the sharpen from.
-      Omitting it reads as "no upscale" and yields 0.8/0.5; 720-wide footage
-      into a 1012-wide A-roll wants 1.6/0.85.
-
-    Measured on this job: resolve applies sharpen 1.5 (auto_sharpen's own
-    measurement), while a preview with neither of the above applied 0.6.
-
-    `sharpen_source` says which number won, so the UI can be honest about it.
+    Without a measurement or explicit grade, the image remains unsharpened.
     """
     # Late import for the same cycle `_stage_assets` dodges: stages/__init__
     # pulls in calibrate, which imports this module. calibrate.py does the same.
@@ -83,7 +70,7 @@ def render_grade_context(job: Job, options: dict[str, Any] | None = None) -> dic
     opts = options if options is not None else state.get("options", {})
     width, height = aroll_pixel_size(
         int(opts.get("width", 1080)), int(opts.get("height", 1920)),
-        str(opts.get("frame_preset", "dark")),
+        str(opts.get("frame_preset", DEFAULT_OPTIONS["frame_preset"])),
     )
 
     # Precedence copied from stages/resolve.py: a human's explicit `sharpen`
@@ -91,14 +78,14 @@ def render_grade_context(job: Job, options: dict[str, Any] | None = None) -> dic
     # was measured picking 1.2 where the deliverable needed 1.6.
     human_set = "sharpen" in (opts.get("grade_overrides") or {})
     measured = None if human_set else (
-        _measured_sharpen(job) if option_enabled(opts, "auto_sharpen") else None
+        _measured_sharpen(job) if option_enabled(opts, "auto_sharpen", default=False) else None
     )
     if human_set:
         sharpen_source = "human"
     elif measured:
         sharpen_source = "measured"
     else:
-        sharpen_source = "estimated"
+        sharpen_source = "grade"
 
     return {
         "width": width,
@@ -106,7 +93,7 @@ def render_grade_context(job: Job, options: dict[str, Any] | None = None) -> dic
         "source_width": (state.get("probe") or {}).get("width") or None,
         "measured_sharpen": measured,
         "sharpen_source": sharpen_source,
-        "frame_preset": str(opts.get("frame_preset", "dark")),
+        "frame_preset": str(opts.get("frame_preset", DEFAULT_OPTIONS["frame_preset"])),
     }
 
 
@@ -119,7 +106,8 @@ def _with_measured_sharpen(grade: dict[str, Any], measured: dict[str, float] | N
 
 def _run(command: list[str], timeout: int = 300,
          cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, capture_output=True, text=True,
+    """Previews run inside the API server, not the queue, so they lower their own priority."""
+    return subprocess.run([*low_priority_prefix(), *command], capture_output=True, text=True,
                           encoding="utf-8", errors="replace", timeout=timeout,
                           cwd=str(cwd) if cwd else None,
                           # npx on Windows is a .cmd shim and needs a shell
@@ -180,18 +168,27 @@ def measure_cast(image: Path, crop: str | None = None) -> dict[str, float]:
     return stats
 
 
-def contact_sheet(images: list[tuple[str, Path]], out_path: Path, panel_width: int = 380) -> Path:
-    """Stack labelled variants side by side so they can be judged together."""
+def contact_sheet(images: list[tuple[str, Path]], out_path: Path, panel_width: int = 420) -> Path:
+    """Stack labelled variants side by side with clean badges so they can be judged together."""
     if not images:
         raise PreviewError("Không có ảnh nào để ghép")
     inputs: list[str] = []
     for _, path in images:
         inputs += ["-i", str(path)]
-    scale_parts = "".join(
-        f"[{i}]scale={panel_width}:-1[p{i}];" for i in range(len(images))
-    )
+    labels = {
+        "raw": "GOC (RAW)",
+        "hien_tai": "HIEN TAI",
+        "thu_nghiem": "THU NGHIEM (HSL/LUT)",
+    }
+    scale_parts = []
+    for i, (name, _) in enumerate(images):
+        badge = labels.get(name, name.upper())
+        scale_parts.append(
+            f"[{i}]scale={panel_width}:-1,"
+            f"drawtext=text='{badge}':fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=8:x=(w-text_w)/2:y=20[p{i}];"
+        )
     stack_inputs = "".join(f"[p{i}]" for i in range(len(images)))
-    filter_complex = f"{scale_parts}{stack_inputs}hstack=inputs={len(images)}"
+    filter_complex = f"{''.join(scale_parts)}{stack_inputs}hstack=inputs={len(images)}"
     result = _run(["ffmpeg", "-y", *inputs, "-filter_complex", filter_complex,
                    str(out_path), "-loglevel", "error"])
     if result.returncode != 0:
@@ -217,6 +214,8 @@ def _variant_frame(source: Path, at_seconds: float, grade: dict[str, Any], out_d
         "grade": grade,
         "size": [ctx["width"], ctx["height"]],
         "source_width": ctx["source_width"],
+        "filter": build_grade_chain(grade, ctx["width"], ctx["height"],
+                                    source_width=ctx["source_width"]),
     })[:10]
     image = out_dir / f"grade_{index:02d}_{label}_{key}.png"
     stats_path = image.with_suffix(".stats.json")
@@ -276,8 +275,7 @@ def preview_grades(job: Job, variants: dict[str, dict[str, Any]], at_seconds: fl
 
     # The reference frame: colour untouched, so the numbers below say how far
     # each grade pushes the picture away from the footage as shot.
-    raw_grade = {"tone_curve": 0, "vibrance": 0, "vignette": 0,
-                 "skin_smooth": 0, "blemish_reduce": 0}
+    raw_grade = {}
     raw_path, raw_measured, raw_cached = _variant_frame(
         source, at_seconds, raw_grade, preview_dir, "raw", 0, ctx, input_sha)
     cached_all &= raw_cached
@@ -413,11 +411,13 @@ def preview_clip(job: Job, start_seconds: float = 0.0, duration: float = 5.0,
     options = state.get("options", {})
     crf = crf if crf is not None else int(options.get("render_crf", 17))
     jpeg_quality = int(options.get("render_jpeg_quality", 100))
+    from lib.talking_head_edit.stages.render import _configured_max_concurrency
+    preview_concurrency = max(1, min(4, _configured_max_concurrency() // 2))
     result = _run([
         "npx", "remotion", "render", "src/index.tsx", "MonaTimeline", str(out_path),
         f"--props={props_path}", f"--public-dir={job.render_public_dir}",
         f"--frames={first_frame}-{last_frame}", f"--scale={scale}",
-        f"--crf={crf}", f"--jpeg-quality={jpeg_quality}", "--concurrency=8",
+        f"--crf={crf}", f"--jpeg-quality={jpeg_quality}", f"--concurrency={preview_concurrency}",
     ], timeout=900, cwd=COMPOSER_DIR)
     if result.returncode != 0 or not out_path.exists():
         raise PreviewError("Remotion preview lỗi:\n" + (result.stdout + result.stderr)[-500:])

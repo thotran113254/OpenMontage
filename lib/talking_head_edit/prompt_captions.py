@@ -46,11 +46,35 @@ def chunk_ranges(words: list[dict[str, Any]], target: int = TARGET_CHUNK_WORDS) 
     return ranges
 
 
+def caption_user_block(options: dict[str, Any] | None) -> str:
+    """The user's own request and proper nouns, for captions.v3+.
+
+    Without it the caption calls never saw the request at all, so "viết hoa đầu
+    từ", "thêm emoji" or the brand's spelling only reached the structure call.
+    """
+    opts = options or {}
+    request = str(opts.get("prompt") or "").strip()
+    names = [str(t).strip() for t in (opts.get("keyterms") or []) if str(t).strip()]
+    topic = str(opts.get("topic") or "").strip()
+    lines = []
+    if request:
+        lines.append("- YÊU CẦU RIÊNG CỦA KHÁCH (thắng quy tắc mặc định về emoji, viết hoa, "
+                     f"cách viết; KHÔNG đổi ý lời nói): {request}")
+    if topic:
+        lines.append(f"- Chủ đề: {topic}")
+    if names:
+        lines.append("- Tên riêng/thuật ngữ phải viết đúng (sửa lỗi ASR nghe nhầm): "
+                     + ", ".join(names))
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
 def build_caption_prompt(words: list[dict[str, Any]], start: int, end: int,
-                         version: str | None = None) -> str:
+                         version: str | None = None,
+                         options: dict[str, Any] | None = None) -> str:
     """Prompt for one chunk. Only the chunk's words are sent, plus a little
     context either side so the model can see where a phrase begins and ends."""
     return prompt_registry.render("captions", {
+        "user_block": caption_user_block(options),
         "start": start,
         "end": end,
         "context_before": " ".join(

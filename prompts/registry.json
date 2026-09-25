@@ -1,6 +1,6 @@
 {
   "structure": {
-    "current": "v3",
+    "current": "v8",
     "changelog": [
       {
         "version": "v1",
@@ -16,11 +16,36 @@
         "version": "v3",
         "note": "Đạo diễn retention: 4 cổng A/B/C/D thay metronome 8-12s; mode edu|hot_take|story|demo; cut dead_air/soft_restart; endcard CTA cụ thể; volume BGM theo năng lượng. Schema JSON 7 khoá giữ nguyên.",
         "author": "builtin"
+      },
+      {
+        "version": "v4",
+        "note": "Không chắc / demo / hot_take / story → 0 card (mặt người). Card chỉ khi listicle edu rõ. Keyword/SFX/punch scale theo số từ. Cấm keyword ASR rác.",
+        "author": "builtin"
+      },
+      {
+        "version": "v5",
+        "note": "Skill theo clip: LLM tự quyết mật độ/overlay từ xương sống + yêu cầu riêng. Bỏ mode quota, cổng retention, công thức số từ. Schema JSON 7 khoá giữ nguyên.",
+        "author": "builtin"
+      },
+      {
+        "version": "v6",
+        "note": "Thứ tự ưu tiên rõ: yêu cầu riêng + card_plan > xương sống > gợi ý kỹ thuật > phong cách cũ. Ghi đè tường minh khi khách muốn tối giản / không card / không cắt.",
+        "author": "builtin"
+      },
+      {
+        "version": "v7",
+        "note": "Mặc định giữ footage gốc: grade {}. Shake/flash chỉ khi khách xin. Punch-in thưa (0–2, scale 1.04–1.08). Không tự beautify da/nét/tương phản.",
+        "author": "builtin"
+      },
+      {
+        "version": "v8",
+        "note": "Yêu cầu riêng của khách lên ngay sau thứ tự ưu tiên (trước là cuối prompt). Luật cắt {{cut_rule}} theo cut_level light|normal|tight thay cho câu cố định 'thà ít cut'.",
+        "author": "builtin"
       }
     ]
   },
   "captions": {
-    "current": "v2",
+    "current": "v3",
     "changelog": [
       {
         "version": "v1",
@@ -30,6 +55,11 @@
       {
         "version": "v2",
         "note": "Siết sửa chính tả ASR tiếng Việt (test/tết, bạn/bản…) khi ngữ cảnh rõ; vẫn không đổi ý.",
+        "author": "builtin"
+      },
+      {
+        "version": "v3",
+        "note": "Caption nhận yêu cầu riêng + chủ đề + tên riêng ({{user_block}}); yêu cầu về emoji/viết hoa/cách viết thắng mặc định. Trước đó 8 call caption không hề thấy yêu cầu của khách.",
         "author": "builtin"
       }
     ]
@@ -60,7 +90,7 @@
     ]
   },
   "revise": {
-    "current": "v2",
+    "current": "v3",
     "changelog": [
       {
         "version": "v1",
@@ -70,6 +100,11 @@
       {
         "version": "v2",
         "note": "Thêm {{history}}: 3 yêu cầu gần nhất + tóm tắt kết quả, để lượt sau hiểu \"cái đó\". Rỗng ở lượt đầu nên render y hệt v1.",
+        "author": "builtin"
+      },
+      {
+        "version": "v3",
+        "note": "Mỗi ý của khách phải được làm hoặc ghi vào not_done. Hiện các đoạn đang cắt; cut_add/cut_restore thay cho ghi đè cut_remove (không xoá cut đã duyệt). Cho sửa option whitelist (frame_preset, tempo, cut_level, cold_open). Kèm schema event để thêm keyword/punch/sfx/card. Xương sống đầy đủ thay vì 400 từ đầu.",
         "author": "builtin"
       }
     ]
@@ -85,7 +120,7 @@
     ]
   },
   "card_guidance": {
-    "current": "v2",
+    "current": "v6",
     "changelog": [
       {
         "version": "v1",
@@ -95,6 +130,26 @@
       {
         "version": "v2",
         "note": "Bỏ mốc số cố định. Yêu cầu đếm Ý CHÍNH ĐỘC LẬP thật sự có trong lời nói, dùng {{n}} (số từ) làm ngữ cảnh quy mô thay vì công thức. Chặn cả 2 chiều: nhồi card cho video ít ý, gộp ý cho video nhiều ý.",
+        "author": "builtin"
+      },
+      {
+        "version": "v3",
+        "note": "Clip ngắn / talking-head / demo: mặc định 0 card. Card full-màn chỉ khi listicle có từ 2 ý độc lập. Vẫn đếm Ý CHÍNH, cấm nhồi/gộp.",
+        "author": "builtin"
+      },
+      {
+        "version": "v4",
+        "note": "Skill: LLM tự quyết. 0 card bình thường. Dùng card khi người xem cần ĐỌC. Cấm nhồi/gộp ý. Không mặc định cards=[].",
+        "author": "builtin"
+      },
+      {
+        "version": "v5",
+        "note": "card_plan / yêu cầu riêng ghi đè gợi ý card. Nhắc lại: 0 card bình thường; không ép mật độ.",
+        "author": "builtin"
+      },
+      {
+        "version": "v6",
+        "note": "Cấm mục tiêu số card / nhồi thẻ. Model tự quyết có hay không; cards=[] là mặc định hợp lý cho talking-head.",
         "author": "builtin"
       }
     ]

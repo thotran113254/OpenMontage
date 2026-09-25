@@ -25,7 +25,7 @@ BROWSER_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
 )
-DEFAULT_MODEL = "cx/gpt-5.6-luna"
+DEFAULT_MODEL = "ag/gemini-3.7-flash-high"
 # Grok-4.5 reasons by default at "high" and routinely exceeds the gateway's
 # Cloudflare 120s read timeout (HTTP 524) on structure prompts. Prefer low
 # unless the operator overrides AUTOEDIT_REASONING_EFFORT.

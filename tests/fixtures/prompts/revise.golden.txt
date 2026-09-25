@@ -23,7 +23,7 @@ flash w9
 - Khoá nào không cần đổi thì BỎ HẲN khỏi patch (đừng để mảng rỗng vô nghĩa).
 - Nếu yêu cầu không thể thực hiện bằng patch, trả {"errors":["lý do"]}.
 
-SFX CÓ THẬT (chỉ 7 file này): sfx_pop.mp3 (keyword/bullet bật) | sfx_pop_high.mp3 (pop lảnh — xen kẽ cho đỡ lặp) | sfx_pop_low.mp3 (pop trầm) | sfx_whoosh.mp3 (card vào / chuyển cảnh) | sfx_riser.mp3 (tiếng dâng ~0.5s, đặt TRƯỚC khoảnh khắc lớn (offsetSec=-0.5)) | sfx_ding.mp3 (chốt ý / số liệu quan trọng) | sfx_tick.mp3 (nhấn nhẹ theo nhịp)
+SFX CÓ THẬT (chỉ 8 file này): sfx_pop.mp3 (keyword/bullet — remotion.media mouse-click.wav (via agent-browser)) | sfx_pop_high.mp3 (pop lảnh — remotion.media switch.wav (via agent-browser)) | sfx_pop_low.mp3 (pop trầm — remotion.media shutter-modern.wav (via agent-browser)) | sfx_whoosh.mp3 (card vào / chuyển — remotion.media whoosh.wav (via agent-browser)) | sfx_riser.mp3 (trước peak (offsetSec âm) — remotion.media whip.wav (via agent-browser)) | sfx_ding.mp3 (chốt ý / số liệu — remotion.media ding.wav (via agent-browser)) | sfx_tick.mp3 (nhấn nhẹ — remotion.media snapchat-notification.wav (via agent-browser)) | sfx_page_turn.mp3 (lật card / section — remotion.media page-turn.wav (via agent-browser))
 
 Nhạc nền hợp lệ:
 - Explainer/tips/listicle: bgm_upbeat_bounce.mp3 (tươi nảy) | bgm_clean_explainer.mp3 (trung tính sạch) | bgm_playful_pop.mp3 (tinh nghịch)

@@ -170,6 +170,33 @@ class TestSourceClassification:
         with pytest.raises(ProjectError, match="duration"):
             project.update_source("s0", duration=999.0)
 
+    def test_workspace_fields_tags_notes_meta_bgm(self, store):
+        project = store.create("P")
+        upload(project)
+        spec = project.update_source(
+            "s0",
+            tags=["tiktok", "tuan-33"],
+            notes="hook mạnh",
+            meta={"posted": True, "views": 1200},
+            bgm_name="bgm_tech_pulse.mp3",
+            bgm_volume=0.14,
+        )
+        assert spec["tags"] == ["tiktok", "tuan-33"]
+        assert spec["notes"] == "hook mạnh"
+        assert spec["meta"]["views"] == 1200
+        assert spec["bgm_name"] == "bgm_tech_pulse.mp3"
+        assert spec["bgm_volume"] == 0.14
+
+    def test_create_job_inherits_source_bgm_for_single_clip(self, store):
+        project = store.create("P")
+        upload(project)
+        project.update_source("s0", bgm_name="bgm_lofi_chill.mp3", bgm_volume=0.12)
+        job = project.create_job(source_ids=["s0"])
+        options = job.load()["options"]
+        assert options["bgm_name"] == "bgm_lofi_chill.mp3"
+        assert options["bgm_volume"] == 0.12
+        assert options["bgm"] is True
+
     def test_an_invalid_role_is_refused(self, store):
         project = store.create("P")
         upload(project)
@@ -329,6 +356,9 @@ class TestListing:
         assert row["aroll_count"] == 2
         assert row["total_seconds"] == 24.0
         assert row["thumb"]
+        assert row["folder"] == ""
+        assert row["ready_count"] == 0
+        assert row["pending_count"] == 2
 
     def test_malformed_project_json_is_skipped_not_fatal(self, store):
         good = store.create("Tốt")
@@ -340,6 +370,67 @@ class TestListing:
     def test_missing_project_raises_file_not_found(self, store):
         with pytest.raises(FileNotFoundError):
             store.get("khong-co-that")
+
+
+class TestFolderAndClipScope:
+    def test_folder_is_stored_on_the_project(self, store):
+        project = store.create("Kênh An", folder="Studio")
+        assert project.load()["folder"] == "Studio"
+        assert store.list()[0]["folder"] == "Studio"
+
+    def test_a_clip_build_uses_only_that_source(self, store):
+        project = store.create("Kênh An")
+        upload(project, name="clip-a.mp4")
+        upload(project, name="clip-b.mp4")
+        job = project.create_job(source_ids=["s1"], include_broll=False)
+        state = job.load()
+        assert state["source_ids"] == ["s1"]
+        assert len(state["input_paths"]) == 1
+        assert "clip-b" in state["input_paths"][0]
+        builds = project.builds()
+        assert builds[0]["source_ids"] == ["s1"]
+        assert builds[0]["source_labels"] == ["clip-b"]
+        assert builds[0]["has_final"] is False
+        assert builds[0]["media_base"] == f"/api/media/{job.job_id}/"
+
+    def test_ready_count_follows_finished_mp4(self, store):
+        project = store.create("An")
+        upload(project, name="clip-a.mp4")
+        upload(project, name="clip-b.mp4")
+        job = project.create_job(source_ids=["s0"], include_broll=False)
+        assert store.list()[0]["ready_count"] == 0
+        (project.jobs_dir / job.job_id / "final.mp4").write_bytes(b"mp4")
+        row = store.list()[0]
+        assert row["ready_count"] == 1
+        assert row["pending_count"] == 1
+
+    def test_per_clip_build_can_still_pull_project_broll(self, store, monkeypatch):
+        from lib.talking_head_edit import sources as sources_mod
+
+        project = store.create("Kênh An")
+        upload(project, name="clip-a.mp4")
+        upload(project, name="clip-b.mp4")
+        monkeypatch.setattr(sources_mod, "probe_source",
+                            FakeProbe(has_audio=False, volume=None))
+        upload(project, name="broll.mp4")
+        job = project.create_job(source_ids=["s0"], include_broll=True)
+        paths = job.load()["input_paths"]
+        assert len(paths) == 2
+        assert "clip-a" in paths[0]
+        assert "broll" in paths[1]
+        assert "clip-b" not in "".join(paths)
+
+    def test_unknown_source_id_is_refused(self, store):
+        project = store.create("P")
+        upload(project)
+        with pytest.raises(ProjectError, match="Không có nguồn"):
+            project.create_job(source_ids=["s9"])
+
+    def test_empty_source_ids_is_refused(self, store):
+        project = store.create("P")
+        upload(project)
+        with pytest.raises(ProjectError, match="Chưa chọn"):
+            project.create_job(source_ids=[])
 
 
 class TestPartialUploadCleanup:

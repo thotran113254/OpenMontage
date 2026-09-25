@@ -54,8 +54,8 @@ class NineRouterImage(BaseTool):
 
     dependencies = []  # checked dynamically via env vars in get_status()
     install_instructions = (
-        "Set NINE_ROUTER_API_KEY (gateway bearer token) and "
-        "NINE_ROUTER_BASE_URL (e.g. https://<your-gateway-host>/v1) in .env."
+        "Set NINE_ROUTER_BASE_URL and NINE_ROUTER_API_KEY (or "
+        "NINE_ROUTER_IMAGE_API_KEY) in .env."
     )
     agent_skills = []
 
@@ -92,7 +92,8 @@ class NineRouterImage(BaseTool):
     user_visible_verification = ["Inspect generated image for relevance and quality"]
 
     def get_status(self) -> ToolStatus:
-        if os.environ.get("NINE_ROUTER_API_KEY") and os.environ.get("NINE_ROUTER_BASE_URL"):
+        key = os.environ.get("NINE_ROUTER_IMAGE_API_KEY") or os.environ.get("NINE_ROUTER_API_KEY")
+        if key and os.environ.get("NINE_ROUTER_BASE_URL"):
             return ToolStatus.AVAILABLE
         return ToolStatus.UNAVAILABLE
 
@@ -161,12 +162,19 @@ class NineRouterImage(BaseTool):
         return None, "NineRouter gateway returned no image (no b64_json or url)", False
 
     def execute(self, inputs: dict[str, Any]) -> ToolResult:
+        try:
+            from lib.env_loader import load_env
+            load_env()
+        except Exception:
+            pass
         if self.get_status() != ToolStatus.AVAILABLE:
             return ToolResult(success=False, error="NineRouter gateway not configured. " + self.install_instructions)
 
         base_url = os.environ["NINE_ROUTER_BASE_URL"].rstrip("/")
         prompt = inputs["prompt"]
-        model = inputs.get("model", "cx/gpt-5.5-image")
+        model = (inputs.get("model")
+                 or os.environ.get("NINE_ROUTER_IMAGE_MODEL")
+                 or "cx/gpt-5.5-image")
         output_format = inputs.get("output_format", "png")
         body = {
             "model": model,
@@ -179,7 +187,7 @@ class NineRouterImage(BaseTool):
             "output_format": output_format,
         }
         headers = {
-            "Authorization": f"Bearer {os.environ['NINE_ROUTER_API_KEY']}",
+            "Authorization": f"Bearer {os.environ.get('NINE_ROUTER_IMAGE_API_KEY') or os.environ['NINE_ROUTER_API_KEY']}",
             "Accept": "text/event-stream",
             "Content-Type": "application/json",
         }

@@ -191,10 +191,12 @@ class TestRenderConcurrencyOption:
         assert _concurrency({"render_concurrency": "half"}) == max(1, _concurrency() // 2)
 
     def test_an_explicit_number_is_honoured_and_clamped(self):
-        from lib.talking_head_edit.stages.render import MAX_CONCURRENCY, _concurrency
+        from lib.talking_head_edit.stages.render import (
+            _concurrency, _configured_max_concurrency,
+        )
 
         assert _concurrency({"render_concurrency": 2}) == 2
-        assert _concurrency({"render_concurrency": 999}) == MAX_CONCURRENCY
+        assert _concurrency({"render_concurrency": 999}) == _configured_max_concurrency()
 
     def test_nonsense_falls_back_to_the_default(self):
         from lib.talking_head_edit.stages.render import _concurrency
@@ -249,17 +251,18 @@ class TestChatRevise:
         assert "bỏ card 2" in history
         assert "đổi nhạc" in history
 
-    def test_history_is_capped_at_three_turns(self, job, monkeypatch):
+    def test_history_is_capped(self, job, monkeypatch):
         """The point of revise is being cheap; unbounded history spends that."""
         stub, seen = self._stub(job, monkeypatch)
-        for index in range(6):
+        limit = chat_revise.HISTORY_TURNS
+        for index in range(limit + 3):
             chat_revise.chat(job, f"yêu cầu {index}", revise_runner=stub)
-        # The history handed to turn 5 is turns 2-4: the current request is not
-        # part of its own context.
+        # The history handed to the last turn is the `limit` turns before it:
+        # the current request is not part of its own context.
         history = seen[-1]["revise_history"]
-        assert "yêu cầu 4" in history
-        assert "yêu cầu 1" not in history
-        assert history.count("→") == 3
+        assert f"yêu cầu {limit + 1}" in history
+        assert "yêu cầu 1»" not in history
+        assert history.count("→") == limit
 
     def test_the_first_turn_has_no_history_block(self, job, monkeypatch):
         stub, seen = self._stub(job, monkeypatch)
@@ -319,7 +322,7 @@ class TestChatRevise:
             state = target.load()
             state["current_version"] = version
             target.save(state)
-            return {"version": version, "report": {}, "usage": {"total_tokens": 40_000}}
+            return {"version": version, "report": {}, "usage": {"total_tokens": chat_revise.TOKEN_WARN_THRESHOLD + 1}}
 
         chat_revise.chat(job, "sửa nhiều thứ", revise_runner=pricey)
         warnings = [e for e in job.read_events()

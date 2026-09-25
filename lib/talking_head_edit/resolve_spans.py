@@ -18,32 +18,38 @@ from typing import Any
 from lib.talking_head_edit.resolve_media import ResolveError
 
 PAD = 0.08          # keep this much speech next to a cut edge
-MIN_CUT = 0.12      # skip cuts shorter than this — not worth an edit point
+# A 0.1s "À" padded to ~0.22s is not worth a jump cut: the seam + expander
+# swallow the neighbouring phoneme and the viewer hears a missing word.
+MIN_CUT = 0.28      # skip cuts shorter than this — not worth an edit point
+# A kept piece shorter than this with no word in it is the PAD tail left between
+# a cut and a run edge: two frames of silence that only add a jump cut.
+MIN_SLIVER = 0.25
 # Above this many spans, adjacent ones get merged first: 80 ffmpeg invocations
 # plus 80 temp files costs more in process and I/O overhead than it saves.
 MAX_SPANS_BEFORE_MERGE = 80
 
 
+def cut_window(pair: list[int], words: list[dict[str, Any]]) -> tuple[float, float]:
+    """The time span a [w0, w1] cut actually removes: the words plus the silence
+    around them, less `PAD` of breathing room on each side."""
+    n = len(words)
+    a, b = sorted(max(0, min(n - 1, int(i))) for i in pair[:2])
+    start = min(float(words[a - 1]["end"]) + PAD, float(words[a]["start"])) if a > 0 \
+        else float(words[a]["start"])
+    end = max(float(words[b + 1]["start"]) - PAD, float(words[b]["end"])) if b + 1 < n \
+        else float(words[b]["end"])
+    return round(start, 3), round(end, 3)
+
+
+def is_worth_cutting(pair: list[int], words: list[dict[str, Any]]) -> bool:
+    start, end = cut_window(pair, words)
+    return end - start >= MIN_CUT
+
+
 def compute_removes(cuts: list[list[int]], words: list[dict[str, Any]]) -> list[tuple[float, float]]:
     """Word-index cut list → merged, padded time spans to remove."""
-    n = len(words)
-    starts = [float(w["start"]) for w in words]
-    ends = [float(w["end"]) for w in words]
-
-    def clamp(i: int) -> int:
-        return max(0, min(n - 1, int(i)))
-
-    spans: list[tuple[float, float]] = []
-    for pair in cuts:
-        if not pair or len(pair) < 2:
-            continue
-        a, b = clamp(pair[0]), clamp(pair[1])
-        if b < a:
-            a, b = b, a
-        start = min(ends[a - 1] + PAD, starts[a]) if a > 0 else starts[a]
-        end = max(starts[b + 1] - PAD, ends[b]) if b + 1 < n else ends[b]
-        if end - start >= MIN_CUT:
-            spans.append((round(start, 3), round(end, 3)))
+    spans = [cut_window(pair, words) for pair in cuts
+             if pair and len(pair) >= 2 and is_worth_cutting(pair, words)]
 
     spans.sort()
     merged: list[tuple[float, float]] = []
@@ -168,11 +174,17 @@ def plan_spans(words: list[dict[str, Any]], cut_pairs: list[list[int]],
 
         kept = [(max(start, window_start), end)
                 for start, end in kept_spans(removes, window_end)]
-        kept = [(start, end) for start, end in kept if end - start > 0]
-        # A cut list that leaves nothing but a sliver of this run is a bad
-        # proposal, not a request for a 0.08-second video. Keep the run instead —
-        # the same reasoning that makes `kept_spans` never return empty.
+        kept = [(start, end) for start, end in kept
+                if end - start > 0 and not _is_empty_sliver(start, end, run_words)]
+        # Cuts that leave nothing but a sliver remove the whole run: after audit,
+        # that is a decision (often the user dropping a whole take), not an
+        # accident. Only a single-run video keeps it — an empty video is not one.
         if sum(end - start for start, end in kept) <= MIN_CUT:
+            if len(runs) > 1:
+                removes_report.append({"src": src_id, "start": round(window_start, 3),
+                                       "end": round(window_end, 3),
+                                       "seconds": round(window_end - window_start, 3)})
+                continue
             kept = [(window_start, window_end)]
             removes = []
 
@@ -185,6 +197,12 @@ def plan_spans(words: list[dict[str, Any]], cut_pairs: list[list[int]],
     if not spans:
         raise ResolveError("Sau khi cắt không còn đoạn nào — kiểm tra lại danh sách cut.")
     return spans, removes_report
+
+
+def _is_empty_sliver(start: float, end: float, words: list[dict[str, Any]]) -> bool:
+    if end - start >= MIN_SLIVER:
+        return False
+    return not any(start <= (float(w["start"]) + float(w["end"])) / 2 <= end for w in words)
 
 
 def merge_adjacent_spans(spans: list[Span], limit: int = MAX_SPANS_BEFORE_MERGE) -> list[Span]:

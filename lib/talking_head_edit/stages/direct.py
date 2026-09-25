@@ -121,7 +121,7 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
 
     def call_captions(index_range: tuple[int, int]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         start, end = index_range
-        prompt = build_caption_prompt(words, start, end)
+        prompt = build_caption_prompt(words, start, end, options=options)
         (logs / f"prompt_captions_v{version}_{start}-{end}.txt").write_text(prompt, encoding="utf-8")
         parsed, usage, _ = chat_json(
             prompt, model=model, temperature=0.2, max_tokens=6000,

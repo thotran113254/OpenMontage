@@ -40,6 +40,15 @@ class TestComputeRemoves:
         ]
         assert compute_removes([[1, 1]], words) == []
 
+    def test_skips_padded_filler_under_min_cut(self):
+        # Real "À" from the trial clip: 0.10s word, pad expands to 0.22s.
+        words = [
+            {"word": "nha.", "start": 13.58, "end": 13.74},
+            {"word": "À", "start": 13.94, "end": 14.04},
+            {"word": "bây", "start": 14.04, "end": 14.28},
+        ]
+        assert compute_removes([[1, 1]], words) == []
+
     def test_merges_adjacent_spans(self):
         words = make_words(12)
         spans = compute_removes([[3, 3], [4, 4]], words)
@@ -171,3 +180,86 @@ class TestCaptionChunks:
             words[index]["end"] += 2.0
         ranges = chunk_ranges(words)
         assert ranges[0][1] == 120, "phải cắt đúng chỗ im lặng dài nhất"
+
+
+class TestCutSafety:
+    def test_a_filler_squeezed_between_words_is_not_worth_an_edit_point(self):
+        """Duration is judged on the real cut window, in the resolver — not here."""
+        from lib.talking_head_edit.cut_safety import filter_unsafe_cuts
+        from lib.talking_head_edit.resolve_spans import is_worth_cutting
+
+        words = [
+            {"word": "nha.", "start": 13.58, "end": 13.74},
+            {"word": "À", "start": 13.94, "end": 14.04},
+            {"word": "bây", "start": 14.04, "end": 14.28},
+        ]
+        kept, _ = filter_unsafe_cuts([[1, 1]], words)
+        assert kept == [[1, 1]]
+        assert not is_worth_cutting([1, 1], words)
+
+    def test_a_tiny_asr_filler_inside_a_long_pause_is_cut(self):
+        """An ASR "ờ" is often 0.06s long inside a second of silence."""
+        from lib.talking_head_edit.cut_safety import filter_unsafe_cuts
+        from lib.talking_head_edit.resolve_spans import is_worth_cutting
+
+        words = [
+            {"word": "như,", "start": 10.0, "end": 10.3},
+            {"word": "ờ...", "start": 11.24, "end": 11.30},
+            {"word": "sản", "start": 11.82, "end": 12.1},
+        ]
+        kept, rejected = filter_unsafe_cuts([[1, 1]], words)
+        assert kept == [[1, 1]] and rejected == []
+        assert is_worth_cutting([1, 1], words)
+
+    def test_a_short_repeat_needs_the_tight_level(self):
+        from lib.talking_head_edit.cut_safety import filter_unsafe_cuts
+
+        words = [{"word": w, "start": i, "end": i + 0.5}
+                 for i, w in enumerate(["đến", "và", "và", "từ"])]
+        reasons = {(1, 1): "repeat"}
+        assert filter_unsafe_cuts([[1, 1]], words, "normal", reasons)[0] == []
+        assert filter_unsafe_cuts([[1, 1]], words, "tight", reasons)[0] == [[1, 1]]
+        assert filter_unsafe_cuts([[1, 1]], words, "tight", {})[0] == []
+
+    def test_cut_level_follows_the_prompt_when_left_on_auto(self):
+        from lib.talking_head_edit.cut_safety import resolve_cut_level
+
+        assert resolve_cut_level({"prompt": "Cắt kỹ các đoạn vấp"}) == "tight"
+        assert resolve_cut_level({"prompt": "giữ nguyên lời"}) == "light"
+        assert resolve_cut_level({"prompt": "nhấn phần chi phí"}) == "normal"
+        assert resolve_cut_level({"prompt": "cắt kỹ", "cut_level": "light"}) == "light"
+
+    def test_keeps_longer_pure_filler(self):
+        from lib.talking_head_edit.cut_safety import filter_unsafe_cuts
+
+        words = [
+            {"word": "xong", "start": 0.0, "end": 0.4},
+            {"word": "ờ", "start": 0.5, "end": 0.9},
+            {"word": "thì", "start": 1.0, "end": 1.3},
+        ]
+        kept, rejected = filter_unsafe_cuts([[1, 1]], words)
+        assert kept == [[1, 1]]
+        assert rejected == []
+
+
+class TestSlivers:
+    def test_a_silent_pad_tail_between_a_cut_and_the_run_edge_is_dropped(self):
+        from lib.talking_head_edit.resolve_spans import plan_spans
+
+        words = [{"word": w, "start": s, "end": e, "src": "s1", "_orig_index": i}
+                 for i, (w, s, e) in enumerate([("a", 0.0, 0.4), ("b", 0.5, 0.9),
+                                                ("và", 2.9, 3.0)])]
+        words.append({"word": "c", "start": 9.0, "end": 9.4, "src": "s1", "_orig_index": 10})
+        spans, _ = plan_spans(words, [[2, 2]], {"s1": "x.mp4"}, {"s1": 20.0})
+        assert all(span.end - span.start >= 0.25 for span in spans)
+
+    def test_cutting_a_whole_take_drops_it_when_others_remain(self):
+        from lib.talking_head_edit.resolve_spans import plan_spans
+
+        words = [{"word": w, "start": s, "end": s + 0.4, "src": src, "_orig_index": i}
+                 for i, (w, s, src) in enumerate([("x", 0.0, "s0"), ("y", 0.5, "s0"),
+                                                  ("a", 0.0, "s1"), ("b", 0.5, "s1")])]
+        spans, removes = plan_spans(words, [[0, 1]], {"s0": "0.mp4", "s1": "1.mp4"},
+                                    {"s0": 1.0, "s1": 1.0})
+        assert {span.src_id for span in spans} == {"s1"}
+        assert removes and removes[0]["src"] == "s0"

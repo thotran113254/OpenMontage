@@ -120,6 +120,7 @@ class TestRenderGradeContext:
         assert preview.render_grade_context(job)["source_width"] is None
 
     def test_uses_the_measured_sharpening_when_auto_sharpen_has_run(self, job):
+        job.update(options={**job.load()["options"], "auto_sharpen": True})
         (job.dir / "sharpen_report.json").write_text(
             json.dumps({"sharpen": 1.5, "clarity": 0.85}), encoding="utf-8")
         ctx = preview.render_grade_context(job)
@@ -141,7 +142,6 @@ class TestRenderGradeContext:
         job.update(options={**job.load()["options"], "auto_sharpen": False})
         ctx = preview.render_grade_context(job)
         assert ctx["measured_sharpen"] is None
-        assert ctx["sharpen_source"] == "estimated"
 
     def test_corrupt_report_does_not_break_the_preview(self, job):
         (job.dir / "sharpen_report.json").write_text("{not json", encoding="utf-8")
@@ -185,6 +185,7 @@ class TestGradeFrameCache:
         assert [entry["grade"]["warmth"] for entry in stub_ffmpeg] == [9]
 
     def test_measured_sharpening_reaches_ffmpeg(self, job, stub_ffmpeg):
+        job.update(options={**job.load()["options"], "auto_sharpen": True})
         (job.dir / "sharpen_report.json").write_text(
             json.dumps({"sharpen": 1.5, "clarity": 0.85}), encoding="utf-8")
         job.update(probe={"width": 720})
@@ -192,7 +193,7 @@ class TestGradeFrameCache:
         applied = stub_ffmpeg[-1]
         assert applied["grade"]["sharpen"] == 1.5
         assert applied["grade"]["clarity"] == 0.85
-        assert applied["size"] == (1012, 1800)
+        assert applied["size"] == (1080, 1920), "mặc định full khung: không lùi A-roll vào"
         assert applied["source_width"] == 720
 
     def test_a_different_moment_is_a_different_frame(self, job, stub_ffmpeg):

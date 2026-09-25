@@ -18,11 +18,12 @@ import json
 import time
 from typing import Any, Callable
 
-HISTORY_TURNS = 3
+HISTORY_TURNS = 5
 MAX_MESSAGE_CHARS = 2000
-# A turn beyond this has stopped being cheap; the whole design rests on revise
-# being an order of magnitude smaller than a fresh director pass.
-TOKEN_WARN_THRESHOLD = 15_000
+# A turn beyond this has stopped being cheap. Revise sends the whole spine (a
+# cut can be asked for anywhere), so a ~4-minute take lands near 25-30k; a
+# fresh director pass on the same take measured ~89k.
+TOKEN_WARN_THRESHOLD = 40_000
 
 
 class ChatReviseError(RuntimeError):
@@ -56,8 +57,16 @@ def append_turn(job, turn: dict[str, Any]) -> None:
         handle.write(json.dumps(turn, ensure_ascii=False) + "\n")
 
 
+TOP_LEVEL_LABELS = {"cut_remove": "đề xuất cắt", "bgm": "nhạc", "grade": "màu",
+                    "cold_open": "hook đầu", "endcard": "endcard"}
+
+
 def summarise(report: dict[str, Any] | None) -> str:
-    """One line describing what a turn actually changed."""
+    """One plain line describing what a turn changed — and what it did not.
+
+    Cuts are only PROPOSED here; `audit` decides afterwards, and the version's
+    `outcome` says how many were actually applied.
+    """
     if not report:
         return "không áp được"
     parts = []
@@ -65,8 +74,14 @@ def summarise(report: dict[str, Any] | None) -> str:
         count = int(report.get(key) or 0)
         if count:
             parts.append(f"{label} {count}")
-    if report.get("top_level_changed"):
-        parts.append(f"đổi {report['top_level_changed']}")
+    changed = [TOP_LEVEL_LABELS.get(k, k) for k in report.get("top_level_changed") or []]
+    if changed:
+        parts.append("đổi " + ", ".join(changed))
+    if report.get("options_changed"):
+        parts.append("tuỳ chọn " + ", ".join(
+            f"{k}={v}" for k, v in report["options_changed"].items()))
+    if report.get("not_done"):
+        parts.append(f"chưa làm {len(report['not_done'])} ý")
     return ", ".join(parts) or "không có gì đổi"
 
 
@@ -139,6 +154,8 @@ def chat(job, message: str, options: dict[str, Any] | None = None,
         "applied": not dry_run,
         "to_version": None if dry_run else version,
         "result": summarise(report),
+        "options_changed": report.get("options_changed") or {},
+        "not_done": report.get("not_done") or [],
         "tokens": tokens,
         "cost_usd": result.get("cost_usd", 0.0),
     })
@@ -177,7 +194,13 @@ def _discard_version(job, version: int, previous: int) -> None:
     so the artefacts are moved aside rather than left to look like an applied
     change. The spec file is KEPT, renamed, so the proposal can still be read.
     """
+    from lib.talking_head_edit.versions import restore_options
+
     state = job.load()
+    discarded = [v for v in state.get("versions", []) if int(v.get("version", 0)) == version]
+    # Only the keys this turn changed go back — not a snapshot from before the
+    # model call, which would undo anything else changed in the meantime.
+    state["options"] = restore_options(state, discarded)
     state["current_version"] = previous
     state["versions"] = [v for v in state.get("versions", [])
                          if int(v.get("version", 0)) != version]

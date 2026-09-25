@@ -18,9 +18,14 @@ import json
 from pathlib import Path
 from typing import Any
 
+from lib.talking_head_edit.cut_safety import (
+    USER_CUT, current_proposals, filter_unsafe_cuts, resolve_cut_level,
+)
 from lib.talking_head_edit.cut_verifier import look_again, verify_cuts
 from lib.talking_head_edit.director_client import estimate_cost
 from lib.talking_head_edit.job_store import primary_input_path
+from lib.talking_head_edit.resolve_spans import MIN_CUT, is_worth_cutting
+from lib.talking_head_edit.spec_patch import NEW_CUT
 from lib.talking_head_edit.resources import usable_bgm, usable_sfx
 from lib.talking_head_edit.stages.direct import director_words
 
@@ -28,6 +33,56 @@ from lib.talking_head_edit.stages.direct import director_words
 EVENT_TYPES = {"caption", "keyword", "card", "punch_in", "sfx", "shake", "flash",
                "broll"}
 WORD_INDEX_FIELDS = ("w0", "w1", "atWord")
+
+_SENTENCE_END = ".!?…\"'"
+
+
+def _word_ends_sentence(text: str) -> bool:
+    stripped = (text or "").strip()
+    return bool(stripped) and stripped[-1] in _SENTENCE_END
+
+
+def normalize_cold_open(
+    cold: dict[str, Any] | None,
+    words: list[dict[str, Any]],
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """Snap hook span to whole-sentence boundaries; drop choppy teasers."""
+    if not isinstance(cold, dict) or "w0" not in cold or "w1" not in cold:
+        return cold if isinstance(cold, dict) else None, []
+
+    notes: list[str] = []
+    count = len(words)
+    w0 = max(0, min(count - 1, int(cold["w0"])))
+    w1 = max(0, min(count - 1, int(cold["w1"])))
+    if w0 > w1:
+        return None, ["cold_open w0>w1 — bỏ hook"]
+
+    orig = (w0, w1)
+    for _ in range(8):
+        if _word_ends_sentence(str(words[w1].get("word", ""))):
+            break
+        if w1 >= count - 1:
+            break
+        w1 += 1
+
+    for _ in range(6):
+        if w0 == 0:
+            break
+        prev = str(words[w0 - 1].get("word", ""))
+        if _word_ends_sentence(prev):
+            break
+        w0 -= 1
+
+    span = w1 - w0 + 1
+    if span < 4:
+        return None, ["cold_open quá ngắn / cắt cụt — bỏ hook"]
+    if span > 28:
+        return None, ["cold_open quá dài — bỏ hook"]
+
+    if (w0, w1) != orig:
+        notes.append(f"hook chỉnh biên câu w{orig[0]}-{orig[1]} → w{w0}-{w1}")
+
+    return {**cold, "w0": w0, "w1": w1}, notes
 
 
 DEFAULT_BGM_VOLUME = 0.22
@@ -51,7 +106,8 @@ def normalise_bgm(bgm: Any) -> tuple[dict[str, Any] | None, str]:
 
 
 def audit_resources(spec: dict[str, Any], word_count: int,
-                    overlay_pool: list[dict[str, Any]] | None = None
+                    overlay_pool: list[dict[str, Any]] | None = None,
+                    words: list[dict[str, Any]] | None = None,
                     ) -> tuple[dict[str, Any], list[str]]:
     """Drop what the renderer provably cannot play or place."""
     sfx_ok, bgm_ok = set(usable_sfx()), set(usable_bgm())
@@ -105,8 +161,114 @@ def audit_resources(spec: dict[str, Any], word_count: int,
         if not (0 <= int(cold["w0"]) < word_count and 0 <= int(cold["w1"]) < word_count):
             removed.append("cold_open trỏ ra ngoài xương sống — bỏ cold-open")
             spec["cold_open"] = None
+        elif words:
+            cold, hook_notes = normalize_cold_open(cold, words)
+            removed.extend(hook_notes)
+            spec["cold_open"] = cold
 
     return spec, removed
+
+
+def clamp_bgm_volume(value: Any, default: float = 0.16) -> float:
+    """A bed under the voice: 0.08–0.22, whatever a person or a model asked for."""
+    try:
+        volume = float(value) if value not in (None, "") else default
+    except (TypeError, ValueError):
+        volume = default
+    return max(0.08, min(0.22, volume))
+
+
+def apply_chosen_bgm(
+    spec: dict[str, Any],
+    options: dict[str, Any],
+    removed: list[str],
+) -> dict[str, Any]:
+    """Lock BGM to the user's style pick. Director guess is only a fallback.
+
+    `bgm_name` on the job is what a saved style / create-build picker writes.
+    Without this, a template that says "always use tech_pulse at 0.15" would
+    still let the model swap the bed on the next video.
+    """
+    from lib.talking_head_edit.job_store import option_enabled
+
+    if not option_enabled(options, "bgm"):
+        spec["bgm"] = None
+        return spec
+    name = str(options.get("bgm_name") or "").strip()
+    if not name:
+        return spec
+    ok = set(usable_bgm())
+    if name not in ok:
+        removed.append(f"bgm đã chọn '{name}' không có file — giữ bản director nếu hợp lệ")
+        return spec
+    spec["bgm"] = {"name": name, "volume": clamp_bgm_volume(options.get("bgm_volume"))}
+    return spec
+
+
+def audit_cuts(proposed: list[dict[str, Any]], words: list[dict[str, Any]],
+               cold_open: dict[str, Any] | None, level: str, model: str | None = None,
+               on_unsure: Any = None) -> dict[str, Any]:
+    """Decide which proposals are cut, and say why each of the others is not.
+
+    Order: the user's own ranges pass straight through; the director's go to the
+    verifier, then the lexicon gate for `level`. Every survivor must still be
+    worth an edit point once the silence around it is measured.
+    """
+    n = len(words)
+
+    def text_of(span: list[int]) -> str:
+        return " ".join(str(words[i].get("word") or "").strip()
+                        for i in range(max(0, span[0]), min(n, span[1] + 1)))
+
+    by_user = [p["w"] for p in proposed if p.get("nguon") == USER_CUT]
+    director = [p for p in proposed if p.get("nguon") != USER_CUT]
+    outside = [span for span in by_user if span[0] < 0 or span[1] >= n]
+    by_user = [span for span in by_user if span not in outside]
+    verified, decisions, usage = verify_cuts(director, words, cold_open, model=model,
+                                             on_unsure=on_unsure)
+    reasons = {tuple(p["w"]): str(p.get("ly_do") or "") for p in director}
+    safe, rejected = filter_unsafe_cuts(verified, words, level, reasons)
+
+    blocked = [{"w": d["w"], "text": text_of(d["w"]), "by": "verifier",
+                "reason": d.get("reason") or "verifier giữ lại"}
+               for d in decisions if d["decision"] != "remove"]
+    blocked += [{**r, "by": "an_toan"} for r in rejected]
+    blocked += [{"w": span, "text": "", "by": "ngoai_pham_vi",
+                 "reason": "chỉ số từ nằm ngoài lời của bản dựng"} for span in outside]
+    applied: list[list[int]] = []
+    for span in by_user + safe:
+        if span in applied:
+            continue
+        if is_worth_cutting(span, words):
+            applied.append(span)
+        else:
+            blocked.append({"w": span, "text": text_of(span), "by": "qua_ngan",
+                            "reason": f"khoảng cắt dưới {MIN_CUT}s — mối nối sẽ nuốt âm cạnh"})
+    return {"applied": sorted(applied), "blocked": blocked,
+            "decisions": decisions, "usage": usage}
+
+
+def cut_outcome(proposed: list[dict[str, Any]], cuts: dict[str, Any]) -> dict[str, Any]:
+    """What happened to the cuts this version asked for, plus the video's total.
+
+    A version that added cuts (revise, the user's own marks) reports only those;
+    the director's first version, which flags none, reports all of its own.
+    """
+    asked = [p["w"] for p in proposed if p.get(NEW_CUT)] or [p["w"] for p in proposed]
+    return {
+        "cuts_proposed": len(asked),
+        "cuts_applied": sum(span in cuts["applied"] for span in asked),
+        "cuts_blocked": [b for b in cuts["blocked"] if b["w"] in asked],
+        "cuts_total_applied": len(cuts["applied"]),
+    }
+
+
+def record_outcome(state: dict[str, Any], version: int, outcome: dict[str, Any]) -> None:
+    """Merge what actually happened into the version entry the UI and API show."""
+    for entry in state.get("versions") or []:
+        if int(entry.get("version", 0)) == version:
+            entry["outcome"] = {**(entry.get("outcome") or {}), **outcome}
+            return
 
 
 def measure_quality(spec: dict[str, Any], words: list[dict[str, Any]]) -> dict[str, Any]:
@@ -152,8 +314,9 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
     # full spine would accept out-of-range indices and mis-window every cut.
     words, _ = director_words(job)
 
-    proposed = spec.get("cut_remove") or []
-    job.emit("log", "audit", f"Kiểm {len(proposed)} đoạn cắt đề xuất bằng verifier riêng…")
+    proposed = current_proposals(spec)
+    level = resolve_cut_level(options)
+    job.emit("log", "audit", f"Kiểm {len(proposed)} đoạn cắt đề xuất (mức cắt: {level})…")
 
     def look_at_unsure(entries: list[dict[str, Any]]):
         """Second look, with a waveform picture, at spans the verifier hedged on.
@@ -187,30 +350,21 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
                 total[key] = int(total.get(key, 0) or 0) + int(value or 0)
         return resolved, total
 
-    accepted, decisions, usage = verify_cuts(
-        proposed, words, spec.get("cold_open"),
-        model=options.get("verifier_model") or options.get("model"),
-        on_unsure=look_at_unsure,
-    )
-    # Lexicon safety net: single/short non-filler tokens (e.g. ASR "tết" for
-    # "test") must never leave even if the verifier said remove.
-    from lib.talking_head_edit.cut_safety import filter_unsafe_cuts
-
-    accepted, safety_rejected = filter_unsafe_cuts(accepted, words)
-    if safety_rejected:
-        job.emit(
-            "log", "audit",
-            f"Chặn {len(safety_rejected)} cut nguy hiểm (không phải filler thuần): "
-            + "; ".join(
-                f"[{r.get('w')}] {r.get('text') or ''} — {r.get('reason')}"
-                for r in safety_rejected[:5]
-            ),
-        )
-    spec["cut_remove"] = accepted   # resolver consumes plain [w0, w1] pairs
+    cuts = audit_cuts(proposed, words, spec.get("cold_open"), level,
+                      model=options.get("verifier_model") or options.get("model"),
+                      on_unsure=look_at_unsure)
+    decisions, usage = cuts["decisions"], cuts["usage"]
+    if cuts["blocked"]:
+        job.emit("log", "audit", f"Không cắt {len(cuts['blocked'])} đoạn: " + "; ".join(
+            f"«{b['text']}» — {b['reason']}" for b in cuts["blocked"][:5]))
+    spec["cut_proposed"] = proposed
+    spec["cut_remove"] = cuts["applied"]   # resolver consumes plain [w0, w1] pairs
+    accepted = cuts["applied"]
 
     spine = json.loads(job.spine_path.read_text(encoding="utf-8"))
     spec, removed_resources = audit_resources(
-        spec, len(words), overlay_pool=spine.get("overlay_pool"))
+        spec, len(words), overlay_pool=spine.get("overlay_pool"), words=words)
+    spec = apply_chosen_bgm(spec, options, removed_resources)
     quality = measure_quality(spec, words)
 
     cost = estimate_cost(usage, options.get("model", ""))
@@ -219,6 +373,8 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
         "cuts_proposed": len(proposed),
         "cuts_accepted": len(accepted),
         "cuts_kept": sum(1 for d in decisions if d["decision"] == "keep"),
+        "cut_level": level,
+        "cuts_blocked": cuts["blocked"],
         "cut_decisions": decisions,
         "removed_resources": removed_resources,
         "quality": quality,
@@ -233,11 +389,12 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
 
     state = job.load()
     state["cost_usd"] = round(float(state.get("cost_usd", 0.0)) + cost, 6)
+    record_outcome(state, version, cut_outcome(proposed, cuts))
     job.save(state)
 
     job.emit("log", "audit",
-             f"Cắt: giữ lại {report['cuts_kept']}/{len(proposed)} đề xuất, "
-             f"chấp nhận {len(accepted)} | caption phủ {quality['caption_coverage'] * 100:.1f}% "
+             f"Cắt: áp dụng {len(accepted)}/{len(proposed)} đề xuất "
+             f"| caption phủ {quality['caption_coverage'] * 100:.1f}% "
              f"| keyword-trong-card {len(quality['keyword_in_card'])}")
     for item in removed_resources:
         job.emit("warning", "audit", item)

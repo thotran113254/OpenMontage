@@ -2,8 +2,8 @@
 
 from lib.talking_head_edit.stages import (  # noqa: F401
     audit, calibrate, direct, probe, render, resolve, revise, select, transcribe,
-    verify,
+    verify, visuals,
 )
 
 __all__ = ["probe", "transcribe", "select", "direct", "audit", "calibrate",
-           "resolve", "render", "verify", "revise"]
+           "resolve", "render", "verify", "revise", "visuals"]

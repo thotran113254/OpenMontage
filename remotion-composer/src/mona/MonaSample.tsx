@@ -125,45 +125,81 @@ const CaptionPill: React.FC<{ lines: MonaCaptionLine[] }> = ({ lines }) => {
   );
 };
 
-export const CaptionLineView: React.FC<{ line: MonaCaptionLine }> = ({ line }) => {
+export const CaptionLineView: React.FC<{ line: MonaCaptionLine; lift?: boolean }> = ({
+  line,
+  lift,
+}) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  // Snappier entrance with a slight overshoot so each phrase "lands" — keeps
-  // the eye locked on the caption instead of it drifting in passively.
+  const { fps, durationInFrames } = useVideoConfig();
   const entrance = spring({ frame, fps, config: { damping: 13, stiffness: 190, mass: 0.7 } });
   const popScale = interpolate(entrance, [0, 1], [0.9, 1]);
 
-  let parts: { t: string; hot: boolean }[] = [{ t: line.text, hot: false }];
-  if (line.highlight && line.text.includes(line.highlight)) {
-    const idx = line.text.indexOf(line.highlight);
-    parts = [
-      { t: line.text.slice(0, idx), hot: false },
-      { t: line.highlight, hot: true },
-      { t: line.text.slice(idx + line.highlight.length), hot: false },
-    ].filter((p) => p.t.length > 0);
+  const tokens = line.text.split(/(\s+)/);
+  const offsets: number[] = [];
+  let running = 0;
+  for (const token of tokens) {
+    offsets.push(running);
+    running += token.length;
   }
+  const hiStart = line.highlight ? line.text.indexOf(line.highlight) : -1;
+  const hiEnd = hiStart >= 0 && line.highlight ? hiStart + line.highlight.length : -1;
+  const wordSlots = tokens
+    .map((token, index) => ({ token, index, isWord: /\S/.test(token) }))
+    .filter((slot) => slot.isWord);
+  const spokenAt = interpolate(frame, [2, Math.max(6, durationInFrames * 0.72)], [0, wordSlots.length], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
-  // 330px bottom clearance keeps the pill above TikTok/Reels UI chrome
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 330 }}>
+    <AbsoluteFill
+      style={{
+        justifyContent: "flex-end",
+        alignItems: "center",
+        paddingBottom: lift ? 560 : 330,
+      }}
+    >
       <div
         style={{
           opacity: entrance,
           transform: `translateY(${interpolate(entrance, [0, 1], [26, 0])}px) scale(${popScale})`,
-          background: "rgba(20,22,32,0.94)",
-          borderRadius: 18,
-          padding: "18px 32px",
-          maxWidth: "88%",
+          background: "rgba(12,14,22,0.82)",
+          borderRadius: 20,
+          padding: "16px 28px",
+          maxWidth: "90%",
           textAlign: "center",
-          boxShadow: "0 12px 34px rgba(0,0,0,0.4)",
+          boxShadow: "0 14px 40px rgba(0,0,0,0.45)",
+          backdropFilter: "blur(10px)",
         }}
       >
-        <span style={{ fontSize: 54, fontWeight: 800, fontFamily: BVP, color: "#FFFFFF", lineHeight: 1.3 }}>
-          {parts.map((p, i) => (
-            <span key={i} style={{ color: p.hot ? (line.highlightColor ?? "#38BDF8") : "#FFFFFF" }}>
-              {p.t}
-            </span>
-          ))}
+        <span style={{ fontSize: 52, fontWeight: 800, fontFamily: BVP, lineHeight: 1.32 }}>
+          {tokens.map((token, index) => {
+            const start = offsets[index];
+            const wordOrder = wordSlots.findIndex((slot) => slot.index === index);
+            if (wordOrder < 0) {
+              return <span key={index}>{token}</span>;
+            }
+            const isSpoken = wordOrder <= spokenAt;
+            const isCurrent = wordOrder <= spokenAt && wordOrder > spokenAt - 1;
+            const inHighlight = hiStart >= 0 && start < hiEnd && start + token.length > hiStart;
+            const color = isCurrent
+              ? (inHighlight ? (line.highlightColor ?? "#A3E635") : "#A3E635")
+              : isSpoken
+                ? (inHighlight ? (line.highlightColor ?? "#FFFFFF") : "#FFFFFF")
+                : "rgba(255,255,255,0.42)";
+            return (
+              <span
+                key={index}
+                style={{
+                  color,
+                  display: "inline-block",
+                  transform: isCurrent ? "scale(1.06) translateY(-2px)" : "none",
+                }}
+              >
+                {token}
+              </span>
+            );
+          })}
         </span>
       </div>
     </AbsoluteFill>
@@ -284,6 +320,97 @@ export const EDGE_MARGIN_PX = 40;
 export const MIN_KEYWORD_FONT_PX = 44;
 
 export const CARD_XFADE_S = 0.5; // push-slide duration between back-to-back cards
+
+/** Full white board + PiP only for real listicles. Short talking-head keeps the face. */
+export function shouldUseBoardCards(
+  cards: { inSeconds?: number; outSeconds?: number; at?: number; end?: number }[],
+): boolean {
+  if (cards.length >= 3) return true;
+  const longest = Math.max(
+    0,
+    ...cards.map((card) => {
+      const start = card.inSeconds ?? card.at ?? 0;
+      const stop = card.outSeconds ?? card.end ?? start;
+      return stop - start;
+    }),
+  );
+  return longest >= 10;
+}
+
+export const OverlayCard: React.FC<{ card: MonaCard }> = ({ card }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const rise = spring({ frame, fps, config: { damping: 200, stiffness: 140 } });
+
+  return (
+    <AbsoluteFill style={{ justifyContent: "flex-end", pointerEvents: "none" }}>
+      <div
+        style={{
+          margin: "0 36px 210px",
+          padding: "28px 32px 32px",
+          borderRadius: 28,
+          background: "linear-gradient(180deg, rgba(10,12,20,0.28) 0%, rgba(10,12,20,0.78) 100%)",
+          boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
+          opacity: rise,
+          transform: `translateY(${interpolate(rise, [0, 1], [36, 0])}px)`,
+        }}
+      >
+        <div
+          style={{
+            display: "inline-block",
+            background: BRAND_GRADIENT,
+            color: "#fff",
+            fontFamily: BVP,
+            fontWeight: 800,
+            fontSize: 22,
+            letterSpacing: 0.4,
+            padding: "8px 18px",
+            borderRadius: 999,
+            marginBottom: 14,
+          }}
+        >
+          {card.kicker}
+        </div>
+        <div
+          style={{
+            fontFamily: BVP,
+            fontWeight: 800,
+            fontSize: card.title.length > 14 ? 42 : 52,
+            lineHeight: 1.15,
+            color: "#fff",
+            marginBottom: 16,
+          }}
+        >
+          {card.title}
+        </div>
+        {card.bullets.map((bullet, i) => {
+          const delay = card.bulletTimes && card.bulletTimes[i] != null
+            ? Math.max(0, Math.round((card.bulletTimes[i] - card.inSeconds) * fps))
+            : 8 + i * 16;
+          const shown = frame >= delay;
+          const bp = spring({ frame: frame - delay, fps, config: { damping: 200 } });
+          return (
+            <div
+              key={i}
+              style={{
+                opacity: shown ? interpolate(bp, [0, 1], [0.15, 1]) : 0.15,
+                transform: `translateX(${shown ? interpolate(bp, [0, 1], [16, 0]) : 16}px)`,
+                color: "#F8FAFC",
+                fontFamily: BVP,
+                fontWeight: 600,
+                fontSize: 32,
+                lineHeight: 1.3,
+                marginTop: 8,
+              }}
+            >
+              {bullet}
+            </div>
+          );
+        })}
+      </div>
+    </AbsoluteFill>
+  );
+};
 
 export const ExplainerCard: React.FC<{ card: MonaCard; slideIn?: boolean; slideOut?: boolean }> = ({
   card,
@@ -542,7 +669,8 @@ export const MonaSample: React.FC<MonaSampleProps> = ({
   const frame = useCurrentFrame();
   const cardList = cards ?? (card ? [card] : []);
   const kw = keywords ?? [];
-  const p = pipProgress(frame, fps, cardList);
+  const board = shouldUseBoardCards(cardList);
+  const p = board ? pipProgress(frame, fps, cardList) : 0;
   // punch-in only meaningful while the A-roll is (near) fullscreen
   const punch = 1 + (punchScale(frame, fps, punchIns ?? []) - 1) * (1 - p);
 
@@ -574,7 +702,11 @@ export const MonaSample: React.FC<MonaSampleProps> = ({
             from={Math.round(c.inSeconds * fps)}
             durationInFrames={Math.round((c.outSeconds - c.inSeconds) * fps)}
           >
-            <ExplainerCard card={c} slideIn={slideIn} slideOut={slideOut} />
+            {board ? (
+              <ExplainerCard card={c} slideIn={slideIn} slideOut={slideOut} />
+            ) : (
+              <OverlayCard card={c} />
+            )}
           </Sequence>
         );
       })}

@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 import unicodedata
 from pathlib import Path
@@ -63,13 +64,18 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     # global `config/autoedit-defaults.json`. See assembly_config.resolve.
     "assembly": {},
     "tempo": 1.06,
-    "cold_open": True,
+    "cold_open": False,
+    "hook_prompt": "",
     "bgm": True,
+    # Empty = director picks a bed from the library. Set to a real filename
+    # (shipped `bgm_*.mp3` or uploaded `bgm_user_*.mp3`) to lock the choice.
+    "bgm_name": "",
+    "bgm_volume": 0.16,
     "topic": "",
     "brand_pill": "",
     "card_plan": "",
     "style_profile": "styles/user-edit-profile.json",
-    "frame_preset": "dark",
+    "frame_preset": "none",   # full frame; dark/light/blur inset the footage
     "intermediate_preset": "medium",   # detail retention beats encode speed here
     # The intermediate never leaves the machine, so compressing it hard buys
     # nothing and costs sharpness: at 12 instead of 17 the deliverable measured
@@ -81,15 +87,10 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     # Remotion's own default is 80, which softens the frame before x264 ever
     # sees it. This intermediate is thrown away, so don't compress it.
     "render_jpeg_quality": 100,
-    # Measure each video's own softness and set the sharpening from it,
-    # rather than reusing a number tuned on one clip. Skipped when a human
-    # has set `sharpen` explicitly in grade_overrides.
-    "auto_sharpen": True,
-    # Measure this footage's own exposure and colour cast instead of trusting
-    # the director's guess. Skipped per-key when a human has set that exact
-    # key (brightness/gamma/warmth) in grade_overrides — same rule as
-    # auto_sharpen. See grade_calibrate.py.
-    "auto_grade": True,
+    # Preserve the source unless the user opts into per-source calibration.
+    # Explicit grade_overrides still win over those measurements.
+    "auto_sharpen": False,
+    "auto_grade": False,
     "audio_preset": "shotgun",   # off | voice | voice_strong | shotgun | shotgun_dry
     # Measure this take's own room decay to pick shotgun vs shotgun_dry,
     # overriding `audio_preset` above. Set False to pick one of the 5 presets
@@ -106,6 +107,35 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "height": 1920,
     "fps": 30,
 }
+
+
+def write_json_atomic(path: Path, data: Any) -> None:
+    """Write-then-rename, with a temp name private to this process and thread.
+
+    The server thread and the CLI subprocess both save the same `job.json`; a
+    shared `job.json.tmp` let one writer rename the other's file away mid-save.
+    """
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+# Picking a value by hand turns off the measurement that would otherwise
+# overwrite it on the next resolve.
+_MANUAL_OVERRIDES_AUTO = {"audio_preset": "auto_audio_preset"}
+
+
+def merge_options(current: dict[str, Any], update: dict[str, Any] | None) -> dict[str, Any]:
+    """`current` updated with `update`, where a hand-picked value wins over its auto mode.
+
+    Every place that applies an option update goes through here, so "chọn preset
+    tiếng voice" is never silently replaced by the room measurement.
+    """
+    update = dict(update or {})
+    for manual, auto in _MANUAL_OVERRIDES_AUTO.items():
+        if manual in update and auto not in update:
+            update[auto] = False
+    return {**current, **update}
 
 
 def option_enabled(options: dict[str, Any], name: str, default: bool = True) -> bool:
@@ -222,13 +252,22 @@ class Job:
 
     def save(self, state: dict[str, Any]) -> None:
         state["updated_at"] = time.time()
-        tmp = self.state_path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, self.state_path)
+        write_json_atomic(self.state_path, state)
 
     def update(self, **fields: Any) -> dict[str, Any]:
         state = self.load()
         state.update(fields)
+        self.save(state)
+        return state
+
+    def mark_cancelled(self) -> dict[str, Any]:
+        """Cancelled, with any stage left mid-run marked so too — a "running"
+        render from a killed process otherwise stays "running" forever."""
+        state = self.load()
+        state["status"] = "cancelled"
+        for entry in (state.get("stages") or {}).values():
+            if entry.get("status") == "running":
+                entry["status"] = "cancelled"
         self.save(state)
         return state
 
@@ -293,7 +332,12 @@ class JobStore:
         opts = {**DEFAULT_OPTIONS, **(options or {})}
         stamp = time.strftime("%y%m%d-%H%M%S")
         stem = Path(paths[0]).stem
-        job_id = f"{slugify(title or stem)}-{stamp}"
+        base_id = f"{slugify(title or stem)}-{stamp}"
+        job_id, suffix = base_id, 1
+        # Same title in the same second (two automation runs) must not share a dir.
+        while (self.root / job_id).exists():
+            suffix += 1
+            job_id = f"{base_id}-{suffix}"
         job = Job(job_id, self.root / job_id)
         (job.dir / "logs").mkdir(parents=True, exist_ok=True)
         job.save({

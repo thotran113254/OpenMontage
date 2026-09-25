@@ -10,8 +10,9 @@ from pathlib import Path
 
 import pytest
 
+from lib.talking_head_edit.blind_probe import LABEL_ORDER
 from lib.talking_head_edit.audio_hearing_check import (
-    ALL_DEFECTS, LABEL_ORDER, PROMPT_EN, PROMPT_VI, defect_filter, score_hearing,
+    ALL_DEFECTS, PROMPT_EN, PROMPT_VI, defect_filter, score_hearing,
 )
 
 
@@ -40,14 +41,14 @@ def grid(tmp_path, control_score: float, injected_score: float,
 class TestScoring:
     def test_a_model_that_hears_passes(self, tmp_path):
         result = score_hearing(grid(tmp_path, 1, 8), probes(tmp_path))
-        assert result["so_loi_nghe_ra"] == len(ALL_DEFECTS)
+        assert result["so_loi_nhan_ra"] == len(ALL_DEFECTS)
         assert result["lift_trung_binh"] == 7.0
         assert result["ket_luan"].startswith("NGHE ĐƯỢC")
 
     def test_a_model_that_guesses_fails(self, tmp_path):
         """Same score everywhere: the injected defect makes no difference."""
         result = score_hearing(grid(tmp_path, 5, 5), probes(tmp_path))
-        assert result["so_loi_nghe_ra"] == 0
+        assert result["so_loi_nhan_ra"] == 0
         assert result["lift_trung_binh"] == 0.0
         assert "KHÔNG NGHE ĐƯỢC" in result["ket_luan"]
 
@@ -60,7 +61,7 @@ class TestScoring:
 
     def test_a_lift_below_two_points_does_not_count_as_hearing(self, tmp_path):
         result = score_hearing(grid(tmp_path, 5, 6.5), probes(tmp_path))
-        assert result["so_loi_nghe_ra"] == 0
+        assert result["so_loi_nhan_ra"] == 0
 
     def test_partial_hearing_is_reported_as_partial(self, tmp_path):
         rows = grid(tmp_path, 1, 1)
@@ -75,7 +76,7 @@ class TestScoring:
             if defect and row["ban"] in ("d0", "d1", "d2"):
                 row[defect] = 9
         result = score_hearing(rows, probes(tmp_path))
-        assert result["so_loi_nghe_ra"] == 3
+        assert result["so_loi_nhan_ra"] == 3
         assert "một phần" in result["ket_luan"]
 
     def test_missing_rows_do_not_crash(self, tmp_path):
