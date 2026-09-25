@@ -24,15 +24,19 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from lib.talking_head_edit.job_store import JobStore, find_job, primary_input_path
+from server.schemas import (
+    AudioPreviewResponse, ClipPreviewResponse, GradePreviewResponse,
+    PreviewAudioRequest, PreviewClipRequest, PreviewGradeRequest,
+)
+from lib.talking_head_edit import job_store
+from lib.talking_head_edit.job_store import JobStore, primary_input_path
 from lib.talking_head_edit.preview import (
     PreviewError, preview_audio, preview_clip, preview_grades,
 )
 from lib.talking_head_edit.resolve_media import probe_duration
-
 router = APIRouter()
 store = JobStore()
 
@@ -58,7 +62,7 @@ def _job(job_id: str):
     fine — the preview buttons looked broken while everything else worked.
     """
     try:
-        return find_job(job_id, legacy_root=store.root, projects_root=_projects_root())
+        return job_store.find_job(job_id, legacy_root=store.root, projects_root=_projects_root())
     except FileNotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
 
@@ -110,26 +114,23 @@ def _clamp_at(raw: Any, source: Path, tail: float = 0.0) -> float:
     return round(max(0.0, min(at, max(0.0, duration - tail))), 3)
 
 
-@router.post("/jobs/{job_id}/preview/grade")
-async def preview_grade(job_id: str, request: Request) -> dict[str, Any]:
-    """One frame of raw footage per grade variant, with its colour cast measured.
-
-    Body: {at?: seconds|null, grade?: {...partial grade to try...}}
-    Always includes `raw` and `hien_tai`; adds `thu_nghiem` when `grade` is given.
-    """
-    payload = await request.json() if await request.body() else {}
+@router.post("/jobs/{job_id}/preview/grade", response_model=GradePreviewResponse)
+def preview_grade(job_id: str, payload: PreviewGradeRequest | None = None) -> dict[str, Any]:
+    """One frame of raw footage per grade variant, with its colour cast measured."""
+    if payload is None:
+        payload = PreviewGradeRequest()
     job = _job(job_id)
     source = _source_of(job)
     base = _current_grade(job)
 
     variants: dict[str, dict[str, Any]] = {"hien_tai": base}
-    trial = payload.get("grade")
+    trial = payload.grade
     if trial:
         if not isinstance(trial, dict):
             raise HTTPException(400, "`grade` phải là object")
         variants["thu_nghiem"] = {**base, **trial}
 
-    at = _clamp_at(payload.get("at"), source)
+    at = _clamp_at(payload.at, source)
     try:
         report = preview_grades(job, variants, at_seconds=at, options=job.load().get("options"))
     except (PreviewError, OSError) as exc:
@@ -142,18 +143,16 @@ async def preview_grade(job_id: str, request: Request) -> dict[str, Any]:
     return report
 
 
-@router.post("/jobs/{job_id}/preview/audio")
-async def preview_audio_samples(job_id: str, request: Request) -> dict[str, Any]:
-    """One short sample per cleanup preset — files to listen to, not a verdict.
-
-    Body: {at?: seconds, duration?: seconds, presets?: [name, …]}
-    """
-    payload = await request.json() if await request.body() else {}
+@router.post("/jobs/{job_id}/preview/audio", response_model=AudioPreviewResponse)
+def preview_audio_samples(job_id: str, payload: PreviewAudioRequest | None = None) -> dict[str, Any]:
+    """One short sample per cleanup preset — files to listen to, not a verdict."""
+    if payload is None:
+        payload = PreviewAudioRequest()
     job = _job(job_id)
     source = _source_of(job)
-    duration = float(payload.get("duration") or AUDIO_SAMPLE_SECONDS)
-    at = _clamp_at(payload.get("at"), source, tail=duration)
-    presets = payload.get("presets") or None
+    duration = float(payload.duration or AUDIO_SAMPLE_SECONDS)
+    at = _clamp_at(payload.at, source, tail=duration)
+    presets = payload.presets or None
     if presets is not None and not isinstance(presets, list):
         raise HTTPException(400, "`presets` phải là list")
 
@@ -171,22 +170,18 @@ async def preview_audio_samples(job_id: str, request: Request) -> dict[str, Any]
     return report
 
 
-@router.post("/jobs/{job_id}/preview/clip")
-async def preview_clip_render(job_id: str, request: Request) -> dict[str, Any]:
-    """A short half-size render through the real renderer — the approval step.
-
-    Body: {start?: seconds, duration?: seconds, scale?: 0.1-1.0}
-    Slow (tens of seconds) on purpose: it uses the deliverable's encoder settings,
-    which is the part a Player preview cannot tell you anything about.
-    """
-    payload = await request.json() if await request.body() else {}
+@router.post("/jobs/{job_id}/preview/clip", response_model=ClipPreviewResponse)
+def preview_clip_render(job_id: str, payload: PreviewClipRequest | None = None) -> dict[str, Any]:
+    """A short half-size render through the real renderer — the approval step."""
+    if payload is None:
+        payload = PreviewClipRequest()
     job = _job(job_id)
     try:
         clip = preview_clip(
             job,
-            start_seconds=float(payload.get("start") or 0.0),
-            duration=float(payload.get("duration") or 5.0),
-            scale=float(payload.get("scale") or 0.5),
+            start_seconds=float(payload.start or 0.0),
+            duration=float(payload.duration or 5.0),
+            scale=float(payload.scale or 0.5),
         )
     except (PreviewError, OSError) as exc:
         raise HTTPException(400, f"Render clip duyệt lỗi: {exc}") from exc

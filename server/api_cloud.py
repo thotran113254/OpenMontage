@@ -16,8 +16,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 
+from server.schemas import (
+    ClearCloudQueueRequest, CloudQueueResponse, CloudStatusResponse,
+    EnqueueCloudRequest, EnqueueCloudResponse, ExecuteCloudRequest,
+    PreviewCloudRequest,
+)
 from server.cloud_worker import AlreadyRunningError, cloud_worker
 
 router = APIRouter()
@@ -139,9 +144,8 @@ def _enqueue_job(job_id: str, note: str = "") -> dict[str, Any]:
     return _enrich_entry(entry.to_dict())
 
 
-@router.get("/cloud/status")
+@router.get("/cloud/status", response_model=CloudStatusResponse)
 def cloud_status() -> dict[str, Any]:
-    """Dashboard snapshot: config + queue + flush thresholds + live op."""
     from lib.cloud_render import config as cloud_config
     from lib.cloud_render import queue as cloud_queue
 
@@ -179,7 +183,7 @@ def cloud_status() -> dict[str, Any]:
     }
 
 
-@router.get("/cloud/queue")
+@router.get("/cloud/queue", response_model=CloudQueueResponse)
 def list_cloud_queue() -> dict[str, Any]:
     from lib.cloud_render import config as cloud_config
     from lib.cloud_render import queue as cloud_queue
@@ -192,17 +196,15 @@ def list_cloud_queue() -> dict[str, Any]:
     return {"entries": entries, "flush_check": report}
 
 
-@router.post("/cloud/queue")
-async def enqueue_cloud(request: Request) -> dict[str, Any]:
+@router.post("/cloud/queue", response_model=EnqueueCloudResponse)
+def enqueue_cloud(payload: EnqueueCloudRequest) -> dict[str, Any]:
     """Schedule a job for later batch cloud render (free, local-only)."""
-    payload = await request.json() if await request.body() else {}
-    job_id = str(payload.get("job_id") or "").strip()
+    job_id = str(payload.job_id or "").strip()
     if not job_id:
         raise HTTPException(400, "Thiếu job_id")
-    note = str(payload.get("note") or "")
+    note = str(payload.note or "")
     entry = _enqueue_job(job_id, note=note)
     return {"entry": entry, "message": f"Đã xếp {job_id} vào lịch batch cloud"}
-
 
 @router.delete("/cloud/queue/{job_id}")
 def remove_from_cloud_queue(job_id: str) -> dict[str, Any]:
@@ -218,9 +220,8 @@ def remove_from_cloud_queue(job_id: str) -> dict[str, Any]:
 
 
 @router.post("/cloud/queue/clear")
-async def clear_cloud_queue(request: Request) -> dict[str, Any]:
-    payload = await request.json() if await request.body() else {}
-    if not payload.get("confirm"):
+def clear_cloud_queue(payload: ClearCloudQueueRequest | None = None) -> dict[str, Any]:
+    if payload is None or not payload.confirm:
         raise HTTPException(400, "Cần confirm: true để xoá cả batch queue")
     from lib.cloud_render import queue as cloud_queue
     try:
@@ -231,19 +232,19 @@ async def clear_cloud_queue(request: Request) -> dict[str, Any]:
 
 
 @router.post("/cloud/preview")
-async def preview_cloud(request: Request) -> dict[str, Any]:
+def preview_cloud(payload: PreviewCloudRequest | None = None) -> dict[str, Any]:
     """dry_run only: offer shortlist + cost. Never rents."""
     from lib.cloud_render import announce
     from tools.video.vast_cloud_render import VastCloudRender
 
-    payload = await request.json() if await request.body() else {}
-    mode = str(payload.get("mode") or "render_now")
+    if payload is None:
+        payload = PreviewCloudRequest()
+    mode = str(payload.mode or "render_now")
     if mode not in ("render_now", "flush"):
         raise HTTPException(400, "mode phải là render_now hoặc flush")
-
     inputs: dict[str, Any] = {"mode": mode}
     if mode == "render_now":
-        job_id = str(payload.get("job_id") or "").strip()
+        job_id = str(payload.job_id or "").strip()
         if not job_id:
             raise HTTPException(400, "Thiếu job_id cho mode=render_now")
         _find_job(job_id)  # 404 if missing
@@ -254,7 +255,7 @@ async def preview_cloud(request: Request) -> dict[str, Any]:
         if not entries:
             raise HTTPException(400, "Batch queue rỗng — không có gì để flush")
         # Optional subset; default = whole queue
-        requested = payload.get("job_ids")
+        requested = payload.job_ids
         if requested:
             wanted = {str(j) for j in requested}
             job_ids = [e.job_id for e in entries if e.job_id in wanted]
@@ -264,8 +265,9 @@ async def preview_cloud(request: Request) -> dict[str, Any]:
             job_ids = [e.job_id for e in entries]
         inputs["job_ids"] = job_ids
 
-    if payload.get("pricing_mode") in ("bid", "on-demand"):
-        inputs["pricing_mode"] = payload["pricing_mode"]
+    pricing_mode = getattr(payload, "pricing_mode", None)
+    if pricing_mode in ("bid", "on-demand"):
+        inputs["pricing_mode"] = pricing_mode
 
     tool = VastCloudRender()
     dry = tool.dry_run(inputs)
@@ -277,7 +279,7 @@ async def preview_cloud(request: Request) -> dict[str, Any]:
 
 
 @router.post("/cloud/execute")
-async def execute_cloud(request: Request) -> dict[str, Any]:
+def execute_cloud(payload: ExecuteCloudRequest | None = None) -> dict[str, Any]:
     """Start a paid cloud rent in the background after explicit confirm.
 
     Body must include confirm:true, dry_run_ref, offer_id, mode, and either
@@ -285,18 +287,17 @@ async def execute_cloud(request: Request) -> dict[str, Any]:
     """
     from tools.video.vast_cloud_render import VastCloudRender
 
-    payload = await request.json() if await request.body() else {}
-    if not payload.get("confirm"):
+    if payload is None or not payload.confirm:
         raise HTTPException(
             400,
             "Cần confirm: true — cloud render tốn tiền và đẩy footage ra máy lạ")
 
-    mode = str(payload.get("mode") or "")
+    mode = str(payload.mode or "")
     if mode not in ("render_now", "flush"):
         raise HTTPException(400, "mode phải là render_now hoặc flush")
 
-    offer_id = payload.get("offer_id")
-    dry_run_ref = payload.get("dry_run_ref")
+    offer_id = getattr(payload, "offer_id", None)
+    dry_run_ref = getattr(payload, "dry_run_ref", None)
     if offer_id is None or not dry_run_ref:
         raise HTTPException(
             400, "Thiếu offer_id hoặc dry_run_ref — gọi /cloud/preview trước")
@@ -307,7 +308,7 @@ async def execute_cloud(request: Request) -> dict[str, Any]:
         "dry_run_ref": str(dry_run_ref),
     }
     if mode == "render_now":
-        job_id = str(payload.get("job_id") or "").strip()
+        job_id = str(payload.job_id or "").strip()
         if not job_id:
             raise HTTPException(400, "Thiếu job_id")
         _find_job(job_id)
@@ -315,7 +316,7 @@ async def execute_cloud(request: Request) -> dict[str, Any]:
         job_ids = [job_id]
     else:
         from lib.cloud_render import queue as cloud_queue
-        requested = payload.get("job_ids")
+        requested = payload.job_ids
         if requested:
             job_ids = [str(j) for j in requested]
         else:
@@ -324,8 +325,9 @@ async def execute_cloud(request: Request) -> dict[str, Any]:
             raise HTTPException(400, "Batch queue rỗng")
         inputs["job_ids"] = job_ids
 
-    if payload.get("pricing_mode") in ("bid", "on-demand"):
-        inputs["pricing_mode"] = payload["pricing_mode"]
+    pricing_mode = getattr(payload, "pricing_mode", None)
+    if pricing_mode in ("bid", "on-demand"):
+        inputs["pricing_mode"] = pricing_mode
 
     # Ceiling: client may only lower, never raise above config.
     from lib.cloud_render import config as cloud_config
@@ -335,7 +337,7 @@ async def execute_cloud(request: Request) -> dict[str, Any]:
         raise HTTPException(400, f"config/cloud-render.json không hợp lệ: {exc}") from exc
 
     ceiling = float(resolved["max_total_usd_per_rental"])
-    requested_max = payload.get("max_total_usd")
+    requested_max = getattr(payload, "max_total_usd", None)
     if requested_max is None:
         max_total_usd = ceiling
     else:

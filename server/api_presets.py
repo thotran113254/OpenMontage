@@ -7,9 +7,9 @@ fragment a user saves once and applies to any video later.
 from __future__ import annotations
 
 from typing import Any
+from fastapi import APIRouter, HTTPException
 
-from fastapi import APIRouter, HTTPException, Request
-
+from server.schemas import LookPresetResponse, SavePresetRequest
 from lib.talking_head_edit import look_presets
 from lib.talking_head_edit.look_presets import LookPresetError
 
@@ -20,19 +20,17 @@ def _bad(exc: LookPresetError) -> HTTPException:
     return HTTPException(400, str(exc))
 
 
-@router.get("/look-presets")
+@router.get("/look-presets", response_model=list[LookPresetResponse])
 def list_presets() -> list[dict[str, Any]]:
     return look_presets.load_all()
 
 
-@router.post("/look-presets")
-async def save_preset(request: Request) -> dict[str, Any]:
-    payload = await request.json()
+@router.post("/look-presets", response_model=LookPresetResponse)
+def save_preset(payload: SavePresetRequest) -> dict[str, Any]:
     try:
-        return look_presets.save(payload.get("name"), payload.get("grade"))
+        return look_presets.save(payload.name, payload.grade)
     except LookPresetError as exc:
         raise _bad(exc) from exc
-
 
 @router.delete("/look-presets/{name}")
 def delete_preset(name: str) -> dict[str, Any]:
