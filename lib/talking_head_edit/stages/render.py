@@ -191,12 +191,30 @@ def build_remotion_command(*, entry: str, composition_id: str, out_path: str | P
     return command
 
 
+def _render_on_colab(job, version: int, options: dict[str, Any]) -> dict[str, Any] | None:
+    """Full-size renders go to Colab when asked. None means "render locally
+    instead", which only happens when the config allows a fallback."""
+    from lib.cloud_render import colab
+
+    try:
+        return colab.render_job(job, version, options)
+    except colab.ColabRenderError as exc:
+        if not colab.load_config().get("fallback_to_local"):
+            raise RenderError(f"Render Colab thất bại: {exc}") from exc
+        job.emit("warning", "render", f"Render Colab thất bại ({exc}) — render trên máy này")
+        return None
+
+
 def run(job, options: dict[str, Any]) -> dict[str, Any]:
     state = job.load()
     version = int(state["current_version"])
     props_path = job.props_path(version)
     if not props_path.exists():
         raise RenderError(f"Chưa có props v{version} — chạy stage resolve trước.")
+    if options.get("render_location") == "colab" and float(options.get("render_scale", 1.0)) >= 1.0:
+        colab_result = _render_on_colab(job, version, options)
+        if colab_result is not None:
+            return colab_result
     if not (COMPOSER_DIR / "node_modules").exists():
         raise RenderError(
             "remotion-composer/node_modules chưa cài. Chạy: cd remotion-composer && npm install"

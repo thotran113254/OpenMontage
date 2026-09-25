@@ -1,4 +1,4 @@
-"""Presigned URL + server-side copy helpers for the Vast.ai transfer path.
+"""Presigned URL + server-side copy helpers for the cloud render transfer paths (Vast.ai, Colab).
 
 Kept separate from `sync.py` so `lib.cloud_render` imports one small module
 rather than the whole sync engine. `generate_presigned_url` is a local SigV4
@@ -64,3 +64,21 @@ def download(key: str, local_path: Any, *, settings: Any | None = None) -> None:
     client, bucket = _client_and_bucket(settings)
     Path(local_path).parent.mkdir(parents=True, exist_ok=True)
     client.download_file(bucket, key, str(local_path))
+
+
+def read_text(key: str, *, settings: Any | None = None) -> str | None:
+    """A small object's body as text, or None when it does not exist (yet)."""
+    import botocore.exceptions as botocore_exceptions
+
+    client, bucket = _client_and_bucket(settings)
+    try:
+        return client.get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8", "replace")
+    except botocore_exceptions.ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+            return None
+        raise
+
+
+def put_text(key: str, text: str, *, settings: Any | None = None) -> None:
+    client, bucket = _client_and_bucket(settings)
+    client.put_object(Bucket=bucket, Key=key, Body=text.encode("utf-8"))

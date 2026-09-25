@@ -140,9 +140,10 @@ def build_parser() -> argparse.ArgumentParser:
     # silent: --render-location cloud always needs --cloud-offer or
     # --cloud-yes, and this CLI never prompts (it runs from a subprocess with
     # no tty — server/queue_worker.py:226).
-    parser.add_argument("--render-location", default="local", choices=["local", "cloud"],
-                        help="local (mặc định) hoặc cloud (thuê máy Vast.ai). Cloud CẦN "
-                             "--cloud-offer <id> hoặc --cloud-yes — không bao giờ hỏi lại")
+    parser.add_argument("--render-location", default="local", choices=["local", "cloud", "colab"],
+                        help="local (mặc định), cloud (thuê máy Vast.ai — CẦN --cloud-offer <id> "
+                             "hoặc --cloud-yes) hoặc colab (TPU v6e-1 của tài khoản Colab 1, "
+                             "tự động hoàn toàn — config/colab-render.json)")
     parser.add_argument("--cloud-offer", type=int, default=None, metavar="ID",
                         help="Thuê đúng offer này (lấy id từ --cloud-offers)")
     parser.add_argument("--cloud-yes", action="store_true",
@@ -554,6 +555,8 @@ def main(argv: list[str] | None = None) -> int:
                                "mode": args.assembly_mode}
     if args.frame:
         options["frame_preset"] = args.frame
+    if args.render_location == "colab":
+        options["render_location"] = "colab"
     if args.audio:
         # a preset picked by hand is not to be replaced by the room measurement
         options.update(audio_preset=args.audio, auto_audio_preset=False)
@@ -576,6 +579,7 @@ def main(argv: list[str] | None = None) -> int:
             "prompt": args.prompt, "topic": args.topic, "brand_pill": args.brand_pill,
             "card_plan": args.card_plan, "model": args.model,
             "frame_preset": args.frame, "audio_preset": args.audio,
+            "render_location": "colab" if args.render_location == "colab" else None,
         }.items() if value not in ("", None)}
         options = merge_options(job.load().get("options", {}), explicit)
     elif args.project and not (args.input or args.input_dir):

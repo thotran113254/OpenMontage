@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "runtime": "v6e-1 TPU",
+  "browser_session": "colab-cdp",
+  "cdp_port": 9222,
+  "max_runtime_minutes": 60,
+  "compute_units_per_hour": 4.08,
+  "stall_minutes": 6,
+  "fallback_to_local": false,
+  "x264_preset": ""
+}

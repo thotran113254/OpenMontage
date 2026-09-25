@@ -217,6 +217,61 @@ def _stream_command(args: list[str], *, timeout_s: float,
             f"remote render vượt timeout {timeout_s}s khi chờ exit code, đã kill") from None
 
 
+def finalize_output(job: Any, job_id: str, staging_key: str, work_dir: Path,
+                    expected_duration_seconds: float | None, *, settings: Any,
+                    started: float) -> RemoteRenderResult:
+    """Download a rendered MP4 from its R2 staging key, verify it, and make it
+    the job's final.mp4. Shared by every remote render path (Vast.ai, Colab):
+    whatever rendered it, the same size and duration checks decide whether it
+    may replace `final.mp4`, and the staging object is always deleted."""
+    local_tmp = Path(work_dir) / "downloaded_final.mp4"
+    try:
+        r2_presign.download(staging_key, local_tmp, settings=settings)
+
+        size_bytes = local_tmp.stat().st_size
+        if size_bytes <= MIN_OUTPUT_BYTES:
+            raise CloudRenderError(f"file tải về quá nhỏ ({size_bytes} bytes) -- render có thể đã lỗi")
+
+        try:
+            actual_duration = probe_duration(local_tmp)
+        except ResolveError as exc:
+            raise CloudRenderError(f"không đọc được thời lượng file tải về: {exc}") from exc
+
+        if expected_duration_seconds:
+            drift_ratio = (abs(actual_duration - expected_duration_seconds)
+                           / expected_duration_seconds)
+            if drift_ratio > DURATION_TOLERANCE_RATIO:
+                raise CloudRenderError(
+                    f"thời lượng lệch {drift_ratio:.1%} (mong {expected_duration_seconds:.2f}s, "
+                    f"đo được {actual_duration:.2f}s)")
+
+        # Verified -- write the job's local final.mp4 HERE (the only writer:
+        # callers must not also copy result.local_output_path themselves,
+        # since a second copy would touch final.mp4's mtime again and make
+        # the record_external_upload stat below stale before it is even
+        # saved) before promoting staging to the durable archive with a
+        # server-side copy (no bytes through local) and recording it so the
+        # job-end sync hook skips re-uploading the same bytes from home.
+        # `item.job` is documented as "only used for progress emit calls"
+        # (BatchItem docstring) -- a caller's job double may not have `.dir`.
+        job_dir = getattr(job, "dir", None)
+        if job_dir is not None:
+            final_path = Path(job_dir) / "final.mp4"
+            final_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(local_tmp, final_path)
+
+        archive_key = f"{settings.prefix}/autoedit-jobs/{job_id}/final.mp4"
+        r2_presign.copy_object(staging_key, archive_key, settings=settings)
+        if job_dir is not None:
+            r2_manifest.record_external_upload(job_dir, "final.mp4", archive_key, settings)
+    finally:
+        r2_presign.delete_object(staging_key, settings=settings)
+
+    return RemoteRenderResult(
+        local_output_path=local_tmp, size_bytes=size_bytes,
+        duration_seconds=actual_duration, wall_seconds=round(time.monotonic() - started, 1))
+
+
 def _render_one_item(host: str, port: int, key_path: str | Path, item: BatchItem, *,
                      max_concurrency: int, settings: Any = None) -> RemoteRenderResult:
     """Upload this job's props+public (via R2), render, download the result
@@ -284,52 +339,8 @@ def _render_one_item(host: str, port: int, key_path: str | Path, item: BatchItem
             f"đẩy kết quả render lên R2 thất bại: "
             f"{transfer._curl_error(push.returncode, push.stderr)}")
 
-    local_tmp = Path(item.kit.kit_dir) / "downloaded_final.mp4"
-    try:
-        r2_presign.download(staging_key, local_tmp, settings=settings)
-
-        size_bytes = local_tmp.stat().st_size
-        if size_bytes <= MIN_OUTPUT_BYTES:
-            raise CloudRenderError(f"file tải về quá nhỏ ({size_bytes} bytes) -- render có thể đã lỗi")
-
-        try:
-            actual_duration = probe_duration(local_tmp)
-        except ResolveError as exc:
-            raise CloudRenderError(f"không đọc được thời lượng file tải về: {exc}") from exc
-
-        if item.expected_duration_seconds:
-            drift_ratio = (abs(actual_duration - item.expected_duration_seconds)
-                           / item.expected_duration_seconds)
-            if drift_ratio > DURATION_TOLERANCE_RATIO:
-                raise CloudRenderError(
-                    f"thời lượng lệch {drift_ratio:.1%} (mong {item.expected_duration_seconds:.2f}s, "
-                    f"đo được {actual_duration:.2f}s)")
-
-        # Verified -- write the job's local final.mp4 HERE (the only writer:
-        # callers must not also copy result.local_output_path themselves,
-        # since a second copy would touch final.mp4's mtime again and make
-        # the record_external_upload stat below stale before it is even
-        # saved) before promoting staging to the durable archive with a
-        # server-side copy (no bytes through local) and recording it so the
-        # job-end sync hook skips re-uploading the same bytes from home.
-        # `item.job` is documented as "only used for progress emit calls"
-        # (BatchItem docstring) -- a caller's job double may not have `.dir`.
-        job_dir = getattr(item.job, "dir", None)
-        if job_dir is not None:
-            final_path = Path(job_dir) / "final.mp4"
-            final_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(local_tmp, final_path)
-
-        archive_key = f"{settings.prefix}/autoedit-jobs/{item.job_id}/final.mp4"
-        r2_presign.copy_object(staging_key, archive_key, settings=settings)
-        if job_dir is not None:
-            r2_manifest.record_external_upload(job_dir, "final.mp4", archive_key, settings)
-    finally:
-        r2_presign.delete_object(staging_key, settings=settings)
-
-    return RemoteRenderResult(
-        local_output_path=local_tmp, size_bytes=size_bytes,
-        duration_seconds=actual_duration, wall_seconds=round(time.monotonic() - start, 1))
+    return finalize_output(item.job, item.job_id, staging_key, Path(item.kit.kit_dir),
+                           item.expected_duration_seconds, settings=settings, started=start)
 
 
 def render_batch(rental: Any, composer: "kit.ComposerKitManifest", items: list[BatchItem], *,
