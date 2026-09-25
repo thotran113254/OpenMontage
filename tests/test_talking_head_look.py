@@ -167,7 +167,9 @@ class TestGradeChain:
         # masked to skin-toned pixels (Cr-Cb warm bias) — not the whole frame,
         # or a room's own lighting gradient shows up as a false "haze"
         # (measured: SSIM 0.88 on an untouched ceiling crop without the mask).
-        assert "geq=" in result
+        assert "lut2=c0='if(gt(x-y" in result
+        # `geq` evaluates an expression per pixel: the slowest filter in resolve
+        assert "geq=" not in result
 
     def test_blemish_reduce_scales_how_much_the_colour_layer_smooths(self):
         def blotch_sigma(amount: float) -> float:
