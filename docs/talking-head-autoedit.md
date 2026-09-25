@@ -5,6 +5,9 @@ card giải thích, keyword bay, punch-in, cold-open, endcard, nhạc nền — 
 
 Chạy được 3 cách: CLI, web UI, hoặc qua registry (`talking_head_autoedit`).
 
+Ý khách đi qua pipeline ra sao, mức cắt, phép thử mù phần nhìn, ngân sách CPU:
+[`talking-head-autoedit-intent-quality.md`](talking-head-autoedit-intent-quality.md).
+
 ---
 
 ## Nguyên tắc chính xác (đừng phá)
@@ -17,7 +20,8 @@ Toàn bộ độ chính xác của pipeline dựa trên **một đồng hồ duy
 3. **Cắt hình và tiếng tại cùng biên**, bằng `atrim`+`concat`. **Không dùng `aselect`** — build ffmpeg
    trên máy này im lặng cho qua toàn bộ audio frame (đã kiểm chứng), làm tiếng lệch hình.
    Sau khi cắt có assert lệch A/V < 0.35s.
-4. **Padding an toàn** `PAD=0.08s` cạnh mỗi mối cắt, bỏ qua cut ngắn hơn `MIN_CUT=0.12s`.
+4. **Padding an toàn** `PAD=0.08s` cạnh mỗi mối cắt, bỏ qua cut ngắn hơn `MIN_CUT=0.28s`
+   (`resolve_spans.py`) — cut hụt mức này bị báo `qua_ngan` thay vì âm thầm giữ nguyên.
 5. **Mọi cut đều bị kiểm lại** bởi một call LLM riêng (`cut_verifier.py`). Không kiểm được → không cắt.
 6. **Chỉ tài nguyên có thật** mới được dùng: `remotion-composer/src/mona/resource-manifest.json` là
    nguồn sự thật chung cho cả renderer (TS) và pipeline (Python).
@@ -33,7 +37,7 @@ Toàn bộ độ chính xác của pipeline dựa trên **một đồng hồ duy
 | `select` | chọn take tốt nhất khi nhiều nguồn cùng nội dung; 1 nguồn = no-op | 0s (1 nguồn), ~8s khi có take trùng |
 | `direct` | AI dựng khung + caption (nhiều call song song) | ~24s |
 | `audit` | LLM kiểm từng cut + kiểm tài nguyên có thật + đo chất lượng | ~7s |
-| `calibrate` | **TẮT mặc định** — trượt phép thử mù, xem phần "Gemini có thực sự nghe được không" | ~35s khi bật |
+| `calibrate` | **TẮT mặc định** — trượt phép thử mù, xem phần "Gemini có thực sự nghe/nhìn được để chấm chất lượng không" | ~35s khi bật |
 | `resolve` | ffmpeg cắt/grade/tempo/cold-open + ánh xạ mọi mốc thời gian | ~4 phút |
 | `render` | Remotion → final.mp4 | ~370s @1080x1920 |
 | `verify` | đo lại file: luma, LUFS, lệch A/V, độ dài, nhạc nền có vào mix không, **video có bị giật không**, b-roll có thật xuất hiện không, ảnh soi mối nối đáng nghi | ~25s |
@@ -75,7 +79,7 @@ python -m lib.talking_head_edit.cli --job <job_id> --revise "bỏ card thứ 2, 
 # tự chạy hết + tự sửa MỘT lần nếu verify fail (lỗi không có remedy thì dừng và báo)
 python -m lib.talking_head_edit.cli --job <job_id> --autopilot
 
-# sửa có ngữ cảnh 3 lượt trước (khác --revise: --revise không nhớ gì)
+# sửa có ngữ cảnh 5 lượt trước (khác --revise: --revise không nhớ gì)
 python -m lib.talking_head_edit.cli --job <job_id> --chat "bỏ card 2"
 python -m lib.talking_head_edit.cli --job <job_id> --chat "thêm lại card đó" --dry-run
 python -m lib.talking_head_edit.cli --job <job_id> --chat-history
@@ -111,12 +115,23 @@ cloud-render-reap`).
 ## Chạy bằng web UI
 
 ```bash
-make autoedit-server      # http://127.0.0.1:8756  (API + phục vụ media)
-make autoedit-ui          # http://localhost:5173  (giao diện)
+make autoedit-server      # API + media (port AUTOEDIT_PORT, default 8861)
+make autoedit-ui          # giao diện (port AUTOEDIT_UI_PORT, default 5617)
 
 # hoặc 1 lệnh duy nhất (không cần make, không cần 2 terminal):
 python run_autoedit_dev.py   # tương đương make autoedit-dev
 ```
+
+Trên VPS này (xem `CLAUDE.md`): bind `0.0.0.0`, public IP `<VPS_HOST>`, API cần `AUTOEDIT_API_TOKEN`.
+
+- UI: http://<VPS_HOST>:5617
+- API: http://<VPS_HOST>:8861
+- Local: http://127.0.0.1:5617
+
+Đặt `AUTOEDIT_API_TOKEN` thì mọi `/api/*` (trừ `GET /api/health`, `/openapi.json`, `/docs`, `/redoc`)
+đòi `Authorization: Bearer <token>` / `X-API-Key: <token>`, hoặc `?token=` trên GET (vd `<video src>`) —
+so token kiểu constant-time (`server/auth.py`). Không đặt token thì mở như trước, chỉ nên dùng khi máy
+chỉ có người tin cậy truy cập. Vite proxy `/api` nên dùng UI origin là đủ, UI tự thêm header khi cần.
 
 `run_autoedit_dev.py` chạy song song cả job server và Vite dev server, gộp log
 có tiền tố `[server]`/`[ui]`, Ctrl+C tắt cả hai (kill nguyên cây process —
@@ -126,17 +141,20 @@ một render đang chạy).
 Trong UI — luồng project:
 
 1. **Tạo project** → upload A-roll (+ b-roll) → tab Cấu hình (assembly/keyterms/defaults).
-2. **+ Dựng bản mới** mở wizard: option (prompt, topic, ASR, tempo, bgm…) + **cách chạy**:
-   - *Dựng + duyệt (dừng trước render)* — stages đến `resolve`, có preview; **không** render MP4.
-   - *Dựng rồi xếp lịch cloud* — như trên, khi xong tự enqueue batch cloud (chưa thuê máy).
-   - *Full local* — cả pipeline gồm render (cảnh báo CPU).
-   - *Chỉ tạo job* — `run=false`, chạy tay từng bước trên trang job.
-3. Trang job: stage board (nhóm LLM / encode / render), **Chạy theo bước** (① prepare · ② render),
-   banner “dừng trước render”, rồi chọn render:
+2. **+ Dựng bản mới** mở wizard: option (prompt, topic, ASR, tempo, bgm, `cut_level`…) + **cách chạy**
+   (`RUN_MODES`, `remotion-composer/ui/src/lib/pipeline-plan.ts`):
+   - *Xem trước (khuyên dùng)* — stages đến `resolve`, có preview; **không** render MP4.
+   - *Xem trước rồi xếp lịch cloud* — như trên, khi xong tự enqueue batch cloud (chưa thuê máy).
+   - *Xuất MP4 luôn (máy này)* — cả pipeline gồm render, không dừng giữa chừng để duyệt.
+   - *Chỉ tạo job — chạy tay từng bước* — `run=false`, trang job bấm từng nhóm (LLM → encode → render).
+3. Trang job: thanh 3 phase (Lọc nội dung / AI dựng khung / Cắt & xuất) + stage board (nhóm LLM /
+   encode / render, nhãn thuần Việt). Trước khi có preview thì nút chính là **Cắt & xem trước**; có
+   preview rồi thì job mở thẳng tab **Chat** (sửa tiếp là việc thường làm hơn là chạy lại stage), nút
+   chính đổi thành **Xuất MP4**; xong thì có **Tải MP4**. Ba nút render trong tab tương ứng:
 
 | Nút (trang job) | Ý nghĩa |
 |---|---|
-| **Render MP4 local** / nháp 540p | Chạy ngay trên máy, FIFO queue local, $0 (+ confirm) |
+| **Xuất MP4 trên máy này** / Nháp 540p | Chạy ngay trên máy, FIFO queue local, $0 (+ confirm) |
 | **Xếp lịch cloud** | Đưa job vào batch queue (free, không thuê máy) |
 | **Cloud ngay…** | dry_run + modal xác nhận chi phí → thuê 1 máy cho job này |
 
@@ -146,180 +164,65 @@ xác nhận). Không cron cuối ngày. API: `/api/cloud/*`; create build: `POST
 
 ---
 
-## Gemini có thực sự nghe được không — phép thử mù
+## Gemini có thực sự nghe/nhìn được để chấm chất lượng không
 
-**Kết luận: nghe được LỜI NÓI, không chấm được CHẤT LƯỢNG.** Chạy lại bất cứ lúc nào:
+**Không.** Blind test cho cả tiếng lẫn hình: model đọc đúng lời/nhìn đúng ảnh, nhưng không phân biệt
+được chất lượng kỹ thuật ở mức pipeline này tạo ra — nhãn trung tính thì lift gần 0 và hai bản giống
+hệt nhau vẫn bị chấm lệch nhau vài điểm. Hệ quả trực tiếp: stage `calibrate` **tắt mặc định**; số đo
+hiện dùng (grade mặc định `{}`, `auto_grade`/`auto_sharpen` tắt) đến từ đo đạc cộng mắt/tai người,
+không phải từ model. Chạy lại phép thử bất cứ lúc nào:
 
 ```bash
-python -m lib.talking_head_edit.cli --job <id> --check-hearing --at 41
+python -m lib.talking_head_edit.cli --job <id> --check-hearing --at 41     # tiếng
+python -m lib.talking_head_edit.cli --job <id> --check-seeing --at 60      # hình
 ```
 
-Cách làm: lấy một đoạn 5s, nhân thành 8 bản — 1 bản sạch, 1 bản sạch **trùng lặp**
-(bẫy bịa), và 6 bản mỗi bản tiêm MỘT lỗi đã biết. Nhãn gửi đi là `m1..m8`, không mang
-thông tin. Chỉ số quan trọng là **lệch** (lift): điểm của lỗi ở bản có tiêm, trừ điểm
-chính lỗi đó ở bản đối chứng.
+Phương pháp, số liệu đầy đủ, và cách `calibrate` dùng model khi được bật thủ công:
+[`talking-head-autoedit-intent-quality.md`](talking-head-autoedit-intent-quality.md#model-có-nghe-được-để-chấm-chất-lượng-tiếng-không--phép-thử-mù).
 
-| Phép thử | Nghe ra | Lệch TB | Chấm lệch giữa 2 bản GIỐNG HỆT |
-|---|---|---|---|
-| Nhãn = tên lỗi *(sai thiết kế)* | 6/6 | +7.2 | 0.0 |
-| Nhãn trung tính `m1..m8` | **1/6** | **+0.17** | **1.8–3.2** |
+Muốn bật lại chọn tự động theo từng video: `calibrate_grade` / `calibrate_audio`, sau khi phép thử
+mù cho kết quả tốt trên model bạn dùng. Calibrate chỉ merge lựa chọn của nó *vào dưới*
+`grade_overrides` đang có — thông số bạn tự đặt không bị ghi đè; tắt hẳn bằng `--no-calibrate`.
 
-Bản đầu tiên của phép thử này đặt tên mẫu theo đúng tên lỗi bên trong — tức đưa sẵn đáp
-án. Nó đạt 6/6 ở **mọi** mức, kể cả mức yếu tới ngưỡng không thể nghe. Dấu hiệu lộ ra là
-lift **không giảm** khi lỗi yếu đi.
+---
 
-Với nhãn trung tính: bỏ sót cả tiếng ù +18 dB, có lift **âm** (chấm lỗi ở bản sạch cao
-hơn bản có lỗi), và chấm lệch tới 3.2 điểm giữa hai file **giống hệt nhau từng byte**.
+## Hình ảnh: giữ nguồn làm mặc định
 
-Áp cùng cách kiểm cho chính bước chọn preset — nhãn `voice`/`shotgun`/`shotgun_dry` cũng
-tự nói lên đáp án:
+`build_grade_chain({})` chỉ resize bằng Lanczos. Không tự khử nhiễu theo thời gian,
+không làm mịn da, thêm S-curve, tối góc, unsharp hoặc CAS. Bộ lọc chỉ chạy khi khoá
+tương ứng được yêu cầu. `skin_smooth` và `blemish_reduce` độc lập; không ngầm kích hoạt
+khử nhiễu có thể làm nhoè mặt khi chuyển động.
 
-| | Kết quả 3 vòng |
+| Thông số | Mặc định |
 |---|---|
-| Nhãn thật | `shotgun` ×6/6 — nhất quán |
-| Nhãn A/B/C, xoay vòng | 3.5: `shotgun, voice, shotgun` · 3.6: `voice, shotgun, shotgun` |
+| brightness / warmth | 0 |
+| contrast / saturation / gamma | 1 |
+| skin_smooth / blemish_reduce | 0 |
+| tone_curve / vibrance / vignette | 0 |
+| sharpen / clarity | 0 |
+| auto_grade / auto_sharpen | false (thiếu hoặc null cũng không bật) |
 
-Phần chỉnh màu cũng không sống sót khi bịt nhãn, và 3.6 chọn nhãn "A" ở 3/4 vòng —
-thiên lệch vị trí chứ không phải phán đoán.
+Prompt structure (từ v7, giữ nguyên ở v8 hiện dùng) yêu cầu `grade: {}` cho bản dựng thông thường. Chỉ đề xuất
+chỉnh màu/da/nét khi người dùng yêu cầu. Không tự thêm shake/flash; punch-in là
+tuỳ chọn nhẹ, không phải hạn ngạch. PiP không còn phóng “thở” hoặc nảy theo bullet;
+chuyển bố cục và punch/shake có event cụ thể vẫn hoạt động. Cold-open được bật riêng
+vẫn giữ hiệu ứng nối teaser.
 
-**Audio CÓ tới model.** Bảo chép lời, cả hai model trả về gần đúng nguyên câu, khớp
-Whisper. Nên đây không phải lỗi truyền dữ liệu — nó nghe được nội dung, không nghe được
-chất lượng kỹ thuật.
+Không ghi đè options/spec của job đã lưu. Job cũ có `auto_grade: true`,
+`auto_sharpen: true` hoặc grade trong spec vẫn áp những lựa chọn đó. Muốn đưa một
+job cũ về trung tính, tắt hai cờ auto và ghi giá trị trung tính ở bảng trên vào
+`grade_overrides`, rồi resolve/render lại; file đã render không tự thay đổi.
 
-`llg/gemini-3.6-flash` không khá hơn 3.5 ở phép thử này. Prompt tiếng Anh không khá hơn
-tiếng Việt.
+### Tự dò màu/nét — chỉ khi bật
 
-**Hệ quả:** stage `calibrate` **tắt mặc định**. Thông số đang dùng không bị ảnh hưởng —
-chúng đến từ đo đạc cộng mắt và tai của bạn, không phải từ stage này. Thứ bị rút lại là
-việc **tự động chọn lại cho từng video**. Muốn bật lại: `calibrate_grade` /
-`calibrate_audio`, sau khi `--check-hearing` đạt.
+`auto_grade: true` đo brightness/gamma/warmth theo từng nguồn. `auto_sharpen: true`
+đo độ mềm và viền sáng rồi chọn sharpen/clarity. Đây là phép đo kỹ thuật, không phải
+đảm bảo hình đẹp hơn. Giá trị người dùng trong `grade_overrides` được ưu tiên.
+Nếu không đo được độ nét, giữ grade đã yêu cầu, không tự thêm mức suy đoán.
 
----
-
-## Dò thông số trước khi áp cho cả video *(đang tắt — xem phần trên)*
-
-Stage `calibrate` chạy sau `audit`, trước `resolve`. Nó lấy **một mẫu** từ chính footage của bạn, dựng
-vài phương án, rồi nhờ model **xem ảnh và nghe tiếng** để chốt — sau đó `resolve` mới áp cho toàn video.
-
-```
-audit → calibrate → resolve → render
-         │
-         ├─ 4 ảnh: gốc + 3 phương án màu   → Gemini chấm sáng/màu da/kết cấu da/tự nhiên
-         └─ 3 mẫu tiếng: voice/shotgun/dry → Gemini chấm sạch/vang/rõ/tự nhiên
-```
-
-Mất ~35 giây, thay cho vòng lặp render-5-phút-rồi-đoán-lại. Chạy lại cho **mỗi video** —
-phòng, ánh sáng, khoảng cách mic đổi theo từng buổi quay.
-
-**Vì sao nhờ model chứ không tự đo — với MÀU và TIẾNG:** số đo đã chọn sai ba lần.
-
-| Việc | Bản đo tốt nhất | Model nghe/nhìn thấy |
-|---|---|---|
-| Khử nhiễu | SNR 16.7 dB (cao nhất) | "giọng mỏng, ướt, méo pha" — 4/10 tự nhiên |
-| Khử vang | đuôi giảm 52 dB (cao nhất) | "mất đuôi âm ở các từ" — 4/10 liền mạch |
-| Màu | — | bắt được "cháy vàng" mà số đo toàn khung bỏ sót |
-
-Số đo cho biết đã bỏ đi bao nhiêu, không cho biết thứ còn lại có còn giống người thật không.
-
-**Nhưng ĐỘ NÉT thì ngược lại — không hỏi model.** Chấm trên ảnh tĩnh, model chọn 1.2 trong
-khi file render thật cần 1.6; rồi khi đưa cặp ảnh chênh nhau 2.2 lần nó trả lời "hầu như
-không có sự khác biệt". Khâu xử lý ảnh của nó lấy mẫu xuống đúng phần chi tiết đang cần chấm.
-Độ nét vì vậy được **tính từ tỉ lệ phóng** (`resolve_media.default_sharpening`), lấy từ số đo
-trên clip đã render.
-
-| Nguồn | Tỉ lệ phóng | sharpen / clarity |
-|---|---|---|
-| 720x1280 | 1.41x | 1.6 / 0.85 *(đã đo)* |
-| 1080x1920 | 1.0x | 0.8 / 0.5 *(suy ra, chưa kiểm chứng)* |
-
-**Quy tắc:** mọi thay đổi về độ nét phải đo trên clip đã render, không đo trên
-`--preview-still`. Ảnh tĩnh chưa qua hai lần encode x264 — chính khâu đó lượng tử hoá mất
-phần chi tiết mà làm nét vừa thêm vào.
-
-**Quyết định của bạn được giữ:** calibrate merge lựa chọn của nó *vào dưới* `grade_overrides`
-đang có, nên thông số bạn tự đặt không bị ghi đè. Muốn tắt hẳn: `--no-calibrate`.
-
-### Điều khiển Gemini khi nghe audio
-
-Lời nhắc audio có ba thứ then chốt, mỗi thứ sửa một lỗi đã gặp thật:
-
-1. **Chẩn đoán trước, chấm sau.** Model phải nêu bản thu gốc hỏng ở đâu
-   (`u_am_tram` / `xi_nen` / `vang_phong` / `bi_boc` / `xi_gio` / `bung_hoi` / `vo_tieng`)
-   rồi mới so các bản. Chẩn đoán được ghi vào log — trên footage này nó ra
-   `u_am_tram, xi_nen, vang_phong, bi_boc`, khớp đúng bốn thứ đã đo bằng máy.
-2. **Thang `do_vang` hai chiều.** Bản cũ ghi "10 = khô như phòng thu" nên càng khô càng
-   được điểm — đúng cái bẫy. Sửa thành "vang vừa đủ là tốt nhất, khô tuyệt đối bị trừ
-   ngang với vang quá nhiều": `shotgun_dry` rơi từ 8–9 xuống **5**.
-3. **Chỗ cần nghe, nói cụ thể.** Khoảng lặng giữa câu (nhiễu nền), đuôi câu (vang),
-   đuôi từ và **đường dấu thanh** — tiếng Việt mất đường thanh là mất nghĩa, lỗi này
-   không tồn tại ở tiếng Anh nên model không tự để ý.
-
-**Quyền phủ quyết:** bản nào bị model tự chấm `tu_nhien` < 6 thì không được chọn, kể cả
-khi chính nó đề cử (`pick_winner`). Lý do: bản xử lý mạnh nhất luôn thắng mọi tiêu chí
-"sạch" và thua ở tự nhiên, nên điểm trung bình sẽ chọn nhầm. Áp cho cả màu lẫn tiếng.
-
-**Chất lượng mẫu gửi đi không phải vấn đề** — đã kiểm: 40 kbps / 128 / 256, mỗi mức chạy
-2 lần, cả 6 lần đều chọn `shotgun`. Nguồn gần như không có năng lượng trên 10 kHz
-(-60.6 dB) nên 24 kHz không cắt mất gì. Khác biệt giữa hai lần gọi đơn lẻ là **nhiễu**,
-không phải tín hiệu — muốn kết luận gì về prompt thì phải chạy lặp.
-
----
-
-## Độ nét: ba chỗ mất và trần của nó
-
-Đo trên vùng mặt cắt 1:1 từ file render thật (nguồn 720x1280 @ 2 Mbps, phóng 1.5x):
-
-| Cấu hình | Độ nét | So bản cũ |
-|---|---|---|
-| Bản cũ (khử nhiễu sau khi phóng, JPEG 80, sharpen 0.8) | 1.28 | — |
-| + sửa thứ tự lọc, JPEG 100, encode đúng kích thước hiển thị | 1.46 | +14% |
-| + sharpen 1.6 / clarity 0.85, giảm mài da 0.18→0.08 | 2.65 | +106% |
-| + `intermediate_crf` 17→12 *(mặc định hiện tại)* | 2.85 | +122% |
-| + `render_crf` 17→12 | 3.30 | +158% (file gấp 2.5) |
-| bỏ hẳn mài da | 3.35 | +161% |
-
-Ba chỗ mất, đã sửa cả ba:
-
-1. **Thứ tự lọc** — khử nhiễu chạy *sau* khi phóng to nên chà mất chi tiết vừa nội suy.
-   Giờ khử ở độ phân giải gốc rồi mới phóng (`build_grade_chain`).
-2. **Remotion chụp frame ra JPEG chất lượng 80** trước khi encode → `--jpeg-quality=100`.
-3. **Vòng phóng-thu** — encode 1080 rồi trình duyệt thu về ~1013 để nhét vừa khung inset.
-   Giờ encode thẳng ở kích thước hiển thị (`aroll_pixel_size`).
-
-**Trần:** vùng mặt trong nguồn chỉ có ~400x470 pixel thật. Bản hiện tại đã cho độ nét gấp
-~2.7 lần chính nguồn phóng lên (1.07). Muốn nét hơn nữa phải **sinh thêm chi tiết** —
-tức AI super-resolution (Real-ESRGAN / CodeFormer), không phải chỉnh tham số lọc.
-
-### Tự dò độ nét cho từng video (`auto_sharpen`, bật sẵn)
-
-Một con số cố định chỉ đúng với clip đã tinh chỉnh nó. `resolve` giờ **đo độ mềm của
-chính video đang xử lý** rồi chọn mức làm nét — mất ~15 giây, chạy trên 3 khung có mặt
-người, không gọi model nào.
-
-Hai chỉ số, và chỉ số thứ hai mới là thứ khiến việc này tự động hoá được an toàn:
-
-- `detail` — Laplacian trung bình vùng mặt. Làm nét mạnh thì nó luôn tăng, nên một mình
-  nó không có điểm dừng.
-- `overshoot` — pixel bị đẩy vượt ra ngoài mức sáng/tối cực trị của chính lân cận nó
-  **trước khi** làm nét. Đó đúng là định nghĩa của viền sáng. **Đây là cái phanh.**
-
-Kiểm chứng bằng cách cố tình bóp méo chính footage này:
-
-| footage | độ nét gốc | → sharpen | kết quả |
-|---|---|---|---|
-| đã làm nét sẵn | 4.63 | **0.50** | đạt mục tiêu |
-| gốc | 2.83 | **1.50** | đạt mục tiêu |
-| làm mềm | 2.44 | **1.94** | chạm trần viền |
-| rất mềm | 2.23 | **1.94** | chạm trần viền |
-
-Trên footage gốc nó tự chọn **1.5**, sát mức **1.6** đã được duyệt bằng mắt — mà không
-được cho biết con số đó.
-
-**Đề xuất của đạo diễn AI bị bỏ qua ở đây.** Spec có `sharpen: 0.6`, nhưng model đã được
-chứng minh không chấm được độ nét, nên số của nó không được phép đè lên phép đo. Chỉ khi
-**bạn** đặt `sharpen` trong `grade_overrides` thì auto mới nhường.
-
-Tắt: `auto_sharpen: false`. Báo cáo mỗi lần chạy nằm ở `sharpen_report.json`.
+Vẫn giữ các biện pháp hạn chế mất chất lượng encode: JPEG trung gian 100,
+`intermediate_crf: 12`, `render_crf: 17` và encode A-roll ở kích thước hiển thị.
+Đây là bảo toàn dữ liệu, khác với tăng tương phản để tạo cảm giác nét.
 
 ---
 
@@ -361,22 +264,15 @@ Ba mức trên có sẵn trong UI (`look-preview.tsx`, 3 tab), vì **Remotion Pl
 | **Tiếng** | 5 preset, mỗi bản 8s tiếng từ footage gốc | 3.5s · tức thì khi bấm lại |
 | **Clip duyệt** | Remotion thật, nửa kích thước, đúng crf của bản cuối | 47.8s / 4s video |
 
-Ảnh và mẫu tiếng cache theo hash tham số (`{at, grade, kích thước, sha nguồn}`), nên đổi một con số
-chỉ dựng lại **đúng bản đổi** — `raw` và `hien_tai` dùng lại. Giữ 60 frame mới nhất rồi xoá dần.
+Ảnh và mẫu tiếng cache theo tham số; ảnh còn chứa chuỗi filter thực tế trong cache key
+để thay đổi logic xử lý không trả lại ảnh cũ. Giữ 60 frame mới nhất rồi xoá dần.
 
-**Preview phải khớp option đang chọn — không thì vô nghĩa.** `render_grade_context()` lấy đúng thứ
-`resolve` sẽ dùng, vì bỏ qua chúng thì ảnh preview **mềm hơn bản render** mà chính da là thứ người ta
-nhìn để chấm:
+`render_grade_context()` dùng đúng kích thước A-roll (khung dark: 1012x1800).
+Ảnh `raw` chỉ resize, không làm nét hoặc làm mịn ngầm.
 
-| | render thật | preview nếu để mặc định |
-|---|---|---|
-| kích thước encode (khung `dark`) | 1012x1800 | 1080x1920 |
-| sharpen / clarity | **1.5 / 0.85** (số `auto_sharpen` đo được) | 0.6 / 0.5 |
-
-Thứ tự ưu tiên độ nét giống hệt `resolve`: `grade_overrides` của bạn → số `auto_sharpen` đo trên
-chính video này (`sharpen_report.json`) → suy từ tỉ lệ phóng. Đề xuất của đạo diễn AI **không** được
-tính, vì model đã được chứng minh không chấm được độ nét. Panel in ra nguồn số đang dùng để bạn biết
-đang xem cái gì.
+Thứ tự độ nét: override của bạn → số đo nếu đã bật `auto_sharpen` và có báo cáo →
+thông số grade đã yêu cầu (thiếu thì không làm nét). UI không còn báo “suy từ tỉ lệ
+phóng”. Ảnh preview chưa qua hai lượt encode nên vẫn cần xem clip để chấm chuyển động.
 
 Chọn xong thì bấm **Áp dụng & cắt lại** — nó ghi vào `grade_overrides` / `audio_preset` rồi chạy lại
 `resolve`. `grade_overrides` chỉ lưu **phần bạn đổi**, không lưu bản đã merge: overrides nằm *trên*
@@ -415,8 +311,8 @@ việc, khác công thức). Tool đó vẫn còn trong repo nhưng không có p
 
 ## Khung bao và grade
 
-**Khung bao** (`--frame`, mặc định `dark`): footage được lùi vào trong, đặt trên một nền, bo góc và
-viền mảnh. Tác dụng thật: căn phòng xấu thôi chiếm trọn khung hình và mắt người xem bị đẩy về phía
+**Khung bao** (`--frame`, mặc định `none` = full khung, kể cả các mẫu dựng): chọn `dark`/`light`/`blur`
+thì footage được lùi vào trong, đặt trên một nền, bo góc và viền mảnh. Tác dụng thật: căn phòng xấu thôi chiếm trọn khung hình và mắt người xem bị đẩy về phía
 mặt — bố cục trông có chủ đích thay vì như quay vội.
 
 | Preset | Trông thế nào | Khi nào dùng |
@@ -428,39 +324,22 @@ mặt — bố cục trông có chủ đích thay vì như quay vội.
 
 Lưu ý về `blur`: nếu phòng sáng trắng thì nền mờ ra xám bệt, nhìn tệ hơn `dark` — đã thử và loại.
 
-**Grade** chạy trong ffmpeg ở stage `resolve`. Ngoài brightness/contrast/saturation/gamma do director
-chọn, chuỗi còn có 3 bước cố định (tắt được qua `tone_curve`/`vibrance`/`vignette` = 0):
-
-- **đường cong S + nén vùng sáng** — cho mặt có khối, trần/tường trắng không bị cháy
-- **`vibrance` thay vì tăng saturation toàn cục** — nâng màu nhạt nhưng chừa tông da, mặt không bị cam
-- **vignette nhẹ** — dồn mắt về người nói, làm dịu hậu cảnh lộn xộn
-
-Da vẫn giữ kết cấu thật: `smartblur` có ngưỡng nên chỉ làm mịn vùng phẳng, sau đó `unsharp` lấy lại
-chi tiết mắt/tóc. Muốn mịn hơn thì tăng `skin_smooth` trong spec, nhưng quá 0.5 là bắt đầu giả.
+**Grade** chạy trong ffmpeg ở stage `resolve`, mặc định chỉ resize. Các bước
+tone curve, vibrance, vignette, mịn da và làm nét đều phải được yêu cầu riêng;
+xem [Hình ảnh: giữ nguồn làm mặc định](#hình-ảnh-giữ-nguồn-làm-mặc-định).
+Không chồng bộ lọc làm mịn rồi tăng nét để cố khôi phục texture đã mất.
 
 ---
 
 ## Làm nét
 
-Footage điện thoại vào đây thường mềm sẵn (ví dụ thật: 2.15 Mbps @720x1280) rồi còn bị phóng lên
-1080x1920. Bốn chỗ ăn mất chi tiết, đã xử lý cả bốn:
+`sharpen` dùng unsharp bán kính 3×3; `clarity` dùng CAS. Cả hai mặc định 0.
+Chỉ tăng khi đã xem đối chiếu với nguồn, nhất là tóc, viền mặt và texture da.
+Làm nét tăng tương phản cạnh, không khôi phục chi tiết thật đã mất.
 
-| Chỗ mất nét | Cách xử lý | Đo được |
-|---|---|---|
-| Nén file trung gian `src.mp4` | `veryfast/crf20` → `medium/crf17` | +45% độ nét |
-| Nén bản render cuối | Remotion mặc định → `--crf 17` | hết mềm ở tóc/da |
-| Làm mịn da quá tay | `skin_smooth` 0.35 → 0.18 | đây là thứ xoá chi tiết nhiều nhất |
-| Unsharp bán kính rộng | `unsharp 5:5` → `3:3` + thêm `cas` | +66% trên bản render thật |
-
-`cas` (Contrast Adaptive Sharpening) làm nét theo cạnh nên không tạo quầng sáng như unsharp mạnh —
-chỉnh qua trường `clarity` (mặc định 0.4, tắt bằng 0).
-
-Đánh đổi: stage `resolve` chậm hơn (~2 phút → ~4 phút) và `src.mp4` nặng gấp đôi. Đó là file trung
-gian nên đổi lấy chi tiết là xứng.
-
-**Về AI upscale (Real-ESRGAN):** repo có sẵn `tools/enhancement/upscale.py`, nhưng máy này đang cài
-torch bản CPU nên 2808 frame sẽ mất hàng giờ. Muốn dùng phải cài torch CUDA trước. Kể cả vậy, trần
-chất lượng vẫn bị chặn bởi footage gốc — quay ở bitrate cao hơn có lợi hơn nhiều so với vá bằng AI.
+Giữ chất lượng encode trước khi thêm bộ lọc: `intermediate_crf: 12`,
+`render_crf: 17`, `render_jpeg_quality: 100`. Không tự bật AI upscale hoặc
+beautification cho video gốc.
 
 ---
 
@@ -476,7 +355,9 @@ Gửi một câu tiếng Việt, AI trả về **bản vá** cho spec hiện t�
 
 Event không có id ổn định, nên bản vá định vị theo `(loại, chỉ số từ)`. Địa chỉ trỏ vào 0 hoặc >1
 event thì **bị từ chối**, không đoán. Mỗi lần vá tạo một version mới; `rollback` cũng tạo version
-mới chứ không xoá lịch sử.
+mới chứ không xoá lịch sử. Revise đổi được một số option (khung, tempo, mức cắt, cold-open), thêm/bỏ
+cut cộng dồn, và phải báo ý nào chưa làm — xem
+[`talking-head-autoedit-intent-quality.md`](talking-head-autoedit-intent-quality.md#revise-được-sửa-gì).
 
 ---
 
@@ -484,7 +365,7 @@ mới chứ không xoá lịch sử.
 
 | Đổi thứ này | Chạy lại từ |
 |---|---|
-| prompt / topic / card_plan / model | `direct` |
+| prompt / topic / card_plan / model / cut_level | `direct` |
 | asr_provider / asr_model / whisper_model / keyterms / ngôn ngữ / file nguồn | `transcribe` |
 | tempo / kích thước / cold_open / bgm | `resolve` |
 | chỉ scale render | `render` |
@@ -681,8 +562,9 @@ Có test chạy tiến trình con **thật** rồi kiểm nó đã chết.
 ### Chat revise: sửa có ngữ cảnh
 
 `--revise` không nhớ gì, nên chuỗi hiển nhiên "bỏ card 2" → "thêm lại card đó" không chạy được. Chat
-đưa **3 lượt gần nhất** vào prompt — chỉ yêu cầu + một dòng tóm tắt kết quả, **không** nhồi spec cũ
-vào: cả điểm mạnh của revise là ~8k token thay vì ~55k. Lượt nào > 15k token thì cảnh báo.
+đưa **5 lượt gần nhất** vào prompt — chỉ yêu cầu + một dòng tóm tắt kết quả, **không** nhồi spec cũ
+vào. Lượt nào > 40k token thì cảnh báo (revise gửi đủ xương sống lời: take ~4 phút ≈ 25–30k, dựng lại
+từ đầu ≈ 89k).
 
 Lịch sử ở `chat_history.jsonl` (append-only, cùng kiểu `events.jsonl`) nên crash giữa lượt không làm
 hỏng phần trước. `dry_run` trả patch + diff mà **không** tạo version; spec đề xuất vẫn đọc được ở
@@ -756,22 +638,141 @@ chứa đúng asset nó dùng.
 # .env
 NINE_ROUTER_BASE_URL=https://<gateway>/v1
 NINE_ROUTER_API_KEY=<key>
-AUTOEDIT_DIRECTOR_MODEL=cx/gpt-5.6-luna
+AUTOEDIT_DIRECTOR_MODEL=ag/gemini-3.7-flash-high
 AUTOEDIT_REASONING_EFFORT=low                    # Grok-4.5: high hay 524 Cloudflare ~120s
 ELEVENLABS_API_KEY=<key>                         # Scribe v2 ASR (mặc định).
                                                  # Bỏ trống = tự chạy Whisper local
 
 # tuỳ chọn
-AUTOEDIT_PORT=8756
-AUTOEDIT_INPUT_ROOTS=D:/footage;E:/quay          # thư mục được phép nạp file
+AUTOEDIT_PORT=8861
+AUTOEDIT_UI_PORT=5617
+AUTOEDIT_BIND=0.0.0.0                        # 127.0.0.1 nếu chỉ local
+AUTOEDIT_PUBLIC_HOST=<VPS_HOST>            # IP/hostname VPS (CORS + Vite HMR)
+AUTOEDIT_API=http://127.0.0.1:8861           # proxy nội bộ Vite → API
+AUTOEDIT_INPUT_ROOTS=D:/footage;E:/quay      # thư mục được phép nạp file
 AUTOEDIT_PRICE_IN_PER_MTOK=0                     # đặt giá để UI hiện chi phí thật
 AUTOEDIT_PRICE_OUT_PER_MTOK=0
 ```
 
-Model director đổi được bằng `--model`. Mặc định hiện tại: `cx/gpt-5.6-luna` (qua gateway).
-Prompt `structure` mặc định **v3**: 4 cổng retention (A/B/C/D), mode edu|hot_take|story|demo,
-cut thêm `dead_air`/`soft_restart`, endcard CTA cụ thể — schema JSON 7 khoá không đổi.
-Revert prompt: sửa `prompts/registry.json` → `"structure": {"current": "v2"}`.
+Model director đổi được bằng `--model`. Mặc định hiện tại: `ag/gemini-3.7-flash-high` (qua 9router). Verifier cắt có thể tách model riêng qua `verifier_model`; để trống thì dùng chung model director.
+Prompt hiện dùng (xem `prompts/registry.json`, changelog từng bản): `structure` **v8** (yêu cầu riêng
+đặt ngay sau khối ưu tiên, luật cắt theo `cut_level`), `captions` **v3** (nhận yêu cầu riêng + tên
+riêng), `revise` **v3** (option whitelist, `cut_add`/`cut_restore`, `not_done`), `cut_verify` **v2**
+(verdict thứ ba `unsure`), `card_guidance` **v6** (nested vào `structure`, model tự quyết có card hay
+không — đổi bản này cũng phải nằm trong danh sách băm ở `cache_signature("direct")`, xem
+[`talking-head-autoedit-platform.md`](talking-head-autoedit-platform.md#prompt-là-dữ-liệu-sửa-được)).
+Revert: đổi `"current"` về bản trước trong registry.
+
+---
+
+## Automation API
+
+Một lệnh `POST` để tạo + chạy hết pipeline (thay vì tạo job rồi tự poll từng
+stage), có Idempotency-Key, mã lỗi máy đọc được (`{"detail": ..., "code": ...}`
+trên mọi lỗi), và webhook khi job xong. Đặt `AUTOEDIT_API_TOKEN` trong `.env`
+để bật xác thực — không đặt thì mọi request vẫn mở như trước (`GET
+/api/health` và `/api/auth/*` luôn mở, kể cả khi có token).
+
+**Token không bao giờ xuất hiện trong URL hay JSON trả về** — không còn
+`?token=` (rò vào access log, Referer, lịch sử trình duyệt). Ba cách xác thực:
+
+| Người gọi | Cách xác thực |
+|---|---|
+| Script/automation | Header `Authorization: Bearer <token>` hoặc `X-API-Key: <token>` |
+| Trình duyệt (UI) | Cookie `autoedit_session` (HttpOnly) sau khi `POST /api/auth/login` |
+| `<video src>` / webhook `mp4_url` | URL ký sẵn `?exp=<unix>&sig=<hmac>`, hết hạn sau `AUTOEDIT_SIGNED_URL_TTL` (mặc định 24h) |
+
+```bash
+export TOKEN=<AUTOEDIT_API_TOKEN>
+export API=http://127.0.0.1:8861
+
+# 1. Tạo + chạy hết (bao gồm render) từ một file có sẵn trên máy chạy server
+curl -sX POST "$API/api/runs" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"sources": [{"path": "/home/automation/Edit-Video/projects/footage.mp4"}],
+       "prompt": "nhấn mạnh phần tiết kiệm chi phí", "render": true,
+       "webhook_url": "https://example.com/hooks/openmontage"}'
+# -> 202 {"run_id": "...", "status": "queued", "status_url": "/api/runs/...",
+#         "events_url": "/api/jobs/.../events"}
+# Lặp lại đúng nội dung + Idempotency-Key trong 24h -> trả về run cũ, không tạo
+# job mới. Cùng key, khác nội dung -> 409 idempotency_conflict. Cùng key, yêu
+# cầu trước ĐANG chạy (còn chưa tạo xong job) -> 409 idempotency_in_progress
+# (kèm header Retry-After).
+
+# 2. Poll bằng header (hoặc chờ webhook — xem bên dưới)
+curl -s "$API/api/runs/$RUN_ID" -H "Authorization: Bearer $TOKEN"
+# -> {"run_id", "state": queued|running|awaiting_render|succeeded|failed|cancelled,
+#     "stage", "percent", "error": {code, message}|null,
+#     "outputs": {"mp4_url", "duration_seconds", "verify": {"passed", "issues"}},
+#     "current_version", "versions": [{version, kind, instruction, outcome}], ...}
+
+# 3. Tải MP4 khi state == "succeeded" — mp4_url đã là URL ký sẵn dùng được
+#    ngay, không cần header (hoặc là URL R2 presigned nếu job đã sync lên R2)
+curl -s -o output.mp4 \
+  "$(curl -s "$API/api/runs/$RUN_ID" -H "Authorization: Bearer $TOKEN" | jq -r .outputs.mp4_url)"
+```
+
+`sources[]` nhận `path` (qua path guard hiện có) hoặc `url` (http/https —
+server tải về, chặn địa chỉ nội bộ/loopback/CGNAT để tránh SSRF — bao gồm cả
+khi DNS trả lời khác đi giữa lúc kiểm tra và lúc tải, giới hạn dung lượng bằng
+`AUTOEDIT_MAX_DOWNLOAD_MB`, mặc định 2048). `webhook_url` bị kiểm SSRF y hệt,
+cả lúc tạo run lẫn mỗi lần gửi. `render: false` dừng trước `render`/`verify`
+(như chế độ "prepare" của UI). `project_id` (tuỳ chọn) gắn build vào một
+project có sẵn thay vì tạo job rời.
+
+`POST /api/runs/{id}/revise {"message": "..."}` chạy lại đúng chat-revise dùng
+cho `/jobs/{id}/chat`, rồi xếp `audit,resolve` (+ `render,verify` nếu run này
+tạo với `render: true` — mặc định `false` cho job không tạo qua `/api/runs`).
+`POST /api/runs/{id}/cancel` huỷ như job thường. Cả `chat`, `revise` (cả hai
+dạng) và `POST /jobs/{id}/cuts` (bên dưới) trả `409 job_busy` nếu job đang
+chạy hoặc đang trong hàng đợi.
+
+### Đăng nhập cho trình duyệt
+
+```bash
+curl -sX POST "$API/api/auth/login" -H "Content-Type: application/json" \
+  -d "{\"token\": \"$TOKEN\"}" -c cookies.txt
+# -> {"ok": true}, Set-Cookie: autoedit_session=... (HttpOnly, Path=/, 30 ngày)
+
+curl -s "$API/api/jobs" -b cookies.txt   # cookie thay cho header
+curl -sX POST "$API/api/auth/logout" -b cookies.txt
+curl -s "$API/api/auth/status"           # {"auth_required": bool, "authenticated": bool} — luôn mở
+```
+
+Cookie không có `Domain` nên đi qua được Vite dev proxy (`/api` cùng-origin từ
+góc nhìn trình duyệt) mà không cần cấu hình thêm.
+
+### Cắt/Giữ tay, không qua LLM
+
+```bash
+curl -sX POST "$API/api/jobs/$JOB_ID/cuts" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"cut": [[12, 18]], "keep": [[40, 45]]}'
+# -> {"version": N, "queue_position": ..., "report": {...}}
+```
+
+Không gọi model: khoảng người dùng chọn luôn được đánh dấu `nguon: khach`
+(dùng thẳng, bỏ qua verifier + lexicon gate), khác với transcript Cắt/Giữ kiểu
+cũ từng đi qua `/chat` và phụ thuộc việc model có gán đúng `nguon` hay không.
+
+### Webhook
+
+Khi job vào trạng thái cuối (thành công/thất bại/huỷ), server `POST` đúng
+payload của `GET /api/runs/{id}` tới `webhook_url` (không bao giờ kèm token —
+`mp4_url` bên trong là URL ký sẵn, xem bảng ở trên), kèm header
+`X-Autoedit-Signature: sha256=<hex HMAC-SHA256 của body bằng AUTOEDIT_API_TOKEN>`
+(bỏ qua header này nếu không đặt token). 3 lần thử, có backoff; thất bại chỉ
+ghi warning vào log job, không bao giờ làm hỏng job. Xác minh chữ ký phía
+người nhận (Python):
+
+```python
+import hashlib, hmac
+
+def verify(body: bytes, signature_header: str, token: str) -> bool:
+    expected = "sha256=" + hmac.new(token.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
+```
 
 ---
 
