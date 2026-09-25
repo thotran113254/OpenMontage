@@ -10,7 +10,8 @@ Three modules meet at this point and each owns one failure mode:
 
 The whole design is one sentence: **video is encoded exactly once**. Each kept
 span is encoded, the segments are concatenated with `-c copy`, and the master
-audio pass copies the video stream. The obvious alternative — concat then
+audio pass copies the video stream. Audio stays PCM until that master pass,
+which is the one place it becomes AAC. The obvious alternative — concat then
 re-encode so loudnorm can run — encodes twice and throws away every sharpness
 gain this pipeline measured (2.85 -> ~1.5 on a face crop). `apply_master_audio`
 therefore *asserts* the copy rather than trusting it.
@@ -71,8 +72,15 @@ def can_copy_span(span: Span, grade_chain: str, tempo: float,
 
 # Every encoded piece of the timeline shares this format, which is what lets the
 # concat demuxer join them with `-c copy` instead of a second encode.
-_SEGMENT_FORMAT = ["-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "-ac", "2",
+#
+# Audio is PCM (in .mov) until the master pass. AAC pieces carry 1024 samples
+# of encoder priming at a negative timestamp and round their length up to a
+# whole 1024-sample frame; the concat demuxer answered by starting every
+# `src.mp4` video 21ms after its audio, and a cold-open teaser left a 54ms hole
+# in the video at its join. PCM is sample-exact, so pieces butt together.
+_SEGMENT_FORMAT = ["-pix_fmt", "yuv420p", "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
                    "-video_track_timescale", "90000"]
+SEGMENT_SUFFIX = ".mov"   # mp4 has no widely supported PCM audio
 
 
 def timeline_grid_filter(source_fps: float | None, fps: int, tempo: float,
@@ -199,7 +207,7 @@ def extract_span_audio(span: Span, out_path: Path, tempo: float) -> Path:
     result = subprocess.run(
         ["ffmpeg", "-y", "-ss", f"{span.start:.6f}", "-to", f"{span.end:.6f}",
          "-i", str(span.path), "-vn", "-af", build_audio_span_chain(tempo, span.duration),
-         "-c:a", "aac", "-ar", "48000", "-ac", "2", str(out_path), "-loglevel", "error"],
+         "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2", str(out_path), "-loglevel", "error"],
         capture_output=True, text=True,
     )
     if result.returncode != 0 or not out_path.exists():
@@ -244,7 +252,8 @@ def extract_span(span: Span, out_path: Path, grade_chain: str, tempo: float,
     if copy_streams:
         result = subprocess.run(
             ["ffmpeg", "-y", "-ss", f"{span.start:.3f}", "-to", f"{span.end:.3f}",
-             "-i", str(span.path), "-c", "copy", "-avoid_negative_ts", "make_zero",
+             "-i", str(span.path), "-c:v", "copy", "-c:a", "pcm_s16le", "-ar", "48000",
+             "-ac", "2", "-avoid_negative_ts", "make_zero",
              str(out_path), "-loglevel", "error"],
             capture_output=True, text=True,
         )
@@ -383,7 +392,8 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
                         probes: dict[str, dict[str, Any]] | None = None,
                         target_size: tuple[int, int] | None = None,
                         max_workers: int = MAX_SPAN_WORKERS,
-                        on_log: Any = None) -> tuple[float, list[float]]:
+                        on_log: Any = None,
+                        keep_joined: Path | None = None) -> tuple[float, list[float]]:
     """Spans from any number of sources → one graded, cut, loudness-managed file.
 
     Returns (duration, seam offsets on the output timeline). The seam list is
@@ -393,6 +403,10 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
     `grade_chains` is per source id (with `"__all__"` as the default) because two
     phones in one shoot do not need the same correction, and `auto_sharpen`
     measures a different softness for each.
+
+    `keep_joined` keeps the timeline as it was before the master audio pass
+    (PCM, .mov): `prepend_teaser` joins onto that, then the master pass runs
+    again over the whole programme.
     """
     if not spans:
         raise ResolveError("Không có đoạn nào để giữ — kiểm tra lại danh sách cut.")
@@ -430,7 +444,7 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
         with ThreadPoolExecutor(max_workers=workers) as pool:
             planned: list[tuple[Path, list[Any], Any]] = []
             for index, (span, count) in enumerate(zip(spans, pieces)):
-                segment = segments_dir / f"seg_{index:04d}.mp4"
+                segment = segments_dir / f"seg_{index:04d}{SEGMENT_SUFFIX}"
                 if count == 1:
                     planned.append((segment, [pool.submit(
                         extract_span, span, segment, chain_for(span), tempo, fps,
@@ -443,7 +457,7 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
                     for part, (start, end, frames)
                     in enumerate(slice_bounds(span, count, fps, tempo))]
                 audio = pool.submit(extract_span_audio, span,
-                                    segments_dir / f"seg_{index:04d}_a.m4a", tempo)
+                                    segments_dir / f"seg_{index:04d}_a.wav", tempo)
                 planned.append((segment, slices, audio))
             # Ordered by index, not by completion: the timeline is the span order.
             for segment, video, audio in planned:
@@ -460,9 +474,11 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
             running += duration
             seams.append(round(running, 3))
 
-        joined = segments_dir / "joined.mp4"
+        joined = segments_dir / f"joined{SEGMENT_SUFFIX}"
         concat_segments(segments, joined)
         total = apply_master_audio(joined, out_path, audio_preset)
+        if keep_joined:
+            shutil.move(str(joined), str(keep_joined))
 
         streams = stream_durations(out_path)
         drift = abs(streams.get("video", 0.0) - streams.get("audio", 0.0))
@@ -481,40 +497,49 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
         shutil.rmtree(segments_dir, ignore_errors=True)
 
 
-def prepend_teaser(base_video: Path, start: float, end: float, fps: int = 30,
+def prepend_teaser(timeline: Path, start: float, end: float, fps: int = 30,
                    preset: str = "medium", crf: int = 17) -> float:
-    """Cut [start,end] out of the finished timeline and glue it on the front.
+    """Cut [start,end] out of the pre-master timeline and glue it on the front.
+
+    `timeline` is the PCM file `cut_and_grade_multi(keep_joined=...)` kept; the
+    caller runs `apply_master_audio` over it afterwards, so teaser and
+    programme are levelled together and audio still becomes AAC only once.
 
     Only the teaser is encoded (a cut off-keyframe has to be); it is encoded in
     the segment format and joined with `-c copy`, so the main timeline keeps its
-    single encode instead of paying a second full-length one.
+    single encode instead of paying a second full-length one. It is snapped to
+    whole frames and capped with `-frames:v`, so its video and its PCM audio end
+    together and the programme starts exactly where the teaser stops.
 
-    Returns the teaser length, i.e. the offset every event must shift by.
+    Returns the joined duration; the caller subtracts the old one to get the
+    offset every event must shift by.
     """
-    teaser = base_video.with_name("_teaser_tmp.mp4")
-    base = base_video.with_name("_base_tmp.mp4")
-    base_video.replace(base)
+    teaser = timeline.with_name(f"_teaser_tmp{SEGMENT_SUFFIX}")
+    base = timeline.with_name(f"_base_tmp{SEGMENT_SUFFIX}")
+    timeline.replace(base)
+    frames = max(1, round((end - start) * fps))
+    end = start + frames / fps
     fade_start = max(0.0, (end - start) - 0.02)
     try:
         # 20ms fade-out only — 80ms used to dump a hole of silence onto the
         # first phoneme of the main take (shotgun expander then crushed it).
         subprocess.run(
-            ["ffmpeg", "-y", "-ss", f"{start:.3f}", "-to", f"{end:.3f}", "-i", str(base),
+            ["ffmpeg", "-y", "-ss", f"{start:.6f}", "-to", f"{end:.6f}", "-i", str(base),
              "-af", f"afade=t=out:st={fade_start:.3f}:d=0.02",
              "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
-             *ffmpeg_threads(), *_SEGMENT_FORMAT, "-r", str(fps),
+             *ffmpeg_threads(), *_SEGMENT_FORMAT, "-r", str(fps), "-frames:v", str(frames),
              str(teaser), "-loglevel", "error"],
             check=True, capture_output=True, text=True,
         )
-        concat_segments([teaser, base], base_video)
+        concat_segments([teaser, base], timeline)
     except (subprocess.CalledProcessError, ResolveError) as exc:
-        base.replace(base_video)
+        base.replace(timeline)
         detail = exc.stderr if isinstance(exc, subprocess.CalledProcessError) else str(exc)
         raise ResolveError(f"Ghép cold-open thất bại: {str(detail)[:300]}") from exc
     finally:
         teaser.unlink(missing_ok=True)
         base.unlink(missing_ok=True)
-    return probe_duration(base_video)
+    return probe_duration(timeline)
 
 
 # The one deliberate exception to "video is encoded exactly once" above: this

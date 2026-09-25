@@ -30,12 +30,15 @@ from lib.talking_head_edit.resolve_media import (
     ResolveError, build_grade_chain, probe_duration, speaking_moments,
 )
 from lib.talking_head_edit.resolve_cut import (
-    PREVIEW_PROXY_CRF, PREVIEW_PROXY_PRESET,
-    cut_and_grade_multi, prepend_teaser,
+    PREVIEW_PROXY_CRF, PREVIEW_PROXY_PRESET, SEGMENT_SUFFIX,
+    apply_master_audio, cut_and_grade_multi, prepend_teaser,
 )
 from lib.talking_head_edit.resolve_spans import plan_spans
 
 ENDCARD_SECONDS = 3.6
+# The cut timeline before its master audio pass, kept only until the cold-open
+# decision is made (see `prepend_teaser`).
+PREMASTER_NAME = f"_timeline_premaster{SEGMENT_SUFFIX}"
 
 # Framing presets for the fullscreen A-roll. Inset footage on a backdrop makes
 # an unflattering room read as a deliberate look instead of as the room. "dark"
@@ -344,6 +347,7 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
     # (not yet wired — until then `final.mp4` is produced from this draft).
     preset = PREVIEW_PROXY_PRESET
     crf = PREVIEW_PROXY_CRF
+    premaster = job.dir / PREMASTER_NAME
     new_duration, seams = cut_and_grade_multi(
         spans, job.src_path, grade_chains, tempo, fps,
         preset=preset, crf=crf,
@@ -352,6 +356,7 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
         probes={src_id: source for src_id, source in sources.items()},
         target_size=out_size,
         on_log=lambda message: job.emit("log", "resolve", message),
+        keep_joined=premaster,
     )
     job.emit("log", "resolve",
              f"{source_seconds:.1f}s → {new_duration:.1f}s (tempo {tempo}x)")
@@ -374,9 +379,10 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
         end = min(new_duration, end_of_line + min(0.22, max(0.06, trailing * 0.65)))
 
         if end - start >= 1.0:
-            total = prepend_teaser(job.src_path, start, end, fps, preset=preset, crf=crf)
-            offset = round(total - new_duration, 3)
-            new_duration = total
+            before = probe_duration(premaster)
+            total = prepend_teaser(premaster, start, end, fps, preset=preset, crf=crf)
+            offset = round(total - before, 3)
+            new_duration = apply_master_audio(premaster, job.src_path, audio_preset)
             for event in events:
                 event["at"] = round(event["at"] + offset, 3)
                 if "end" in event:
@@ -400,6 +406,7 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
         else:
             job.emit("warning", "resolve",
                      "Cold-open bị bỏ: đoạn được chọn ngắn hơn 1s sau khi cắt")
+    premaster.unlink(missing_ok=True)
 
     # --- browser-preview proxy ----------------------------------------------
     # `src.mp4` is ALREADY draft-quality (see the encode above), so a separate

@@ -411,14 +411,27 @@ phát hiện: sai span là sai một con số, đọc ra được; sai encode th
 spans (nguồn, giây bắt đầu, giây kết thúc)
    │
    ├─ [song song, ≤4] mỗi span: grade(src) + trim + setpts tempo   (video)
-   │                            + afade 20ms + atempo              (audio thô)
-   │                            → seg_000.mp4     ← LẦN ENCODE VIDEO DUY NHẤT
+   │                            + afade 20ms + atempo              (audio PCM)
+   │                            → seg_000.mov     ← LẦN ENCODE VIDEO DUY NHẤT
    │
-   ├─ concat demuxer -c copy → joined.mp4
+   ├─ concat demuxer -c copy → joined.mov (giữ lại làm _timeline_premaster.mov)
    │
-   └─ ffmpeg -i joined -c:v copy -af "<cleanup,compressor,limiter,loudnorm,aresample>"
-              → src.mp4                            ← audio encode lại, VIDEO COPY
+   ├─ ffmpeg -i joined -c:v copy -af "<cleanup,compressor,limiter,loudnorm,aresample>"
+   │          → src.mp4                            ← audio thành AAC, VIDEO COPY
+   │
+   └─ nếu có cold-open: teaser + premaster (PCM, -c copy) → master lại → src.mp4
 ```
+
+**Audio giữ PCM tới bước master.** Mỗi mảnh AAC mang 1024 mẫu priming ở timestamp âm và làm tròn
+độ dài lên bội số 1024 mẫu. Concat demuxer bù bằng cách dời cả file, nên trước đây hình của mọi
+`src.mp4` bắt đầu ở 0.021s (trễ hơn tiếng 21ms), và mối nối cold-open có một lỗ 54ms trong hình,
+phát ra thành một cú khựng. PCM chính xác từng mẫu nên các mảnh khít nhau. Teaser được làm tròn về
+số nguyên khung và ghép vào bản PCM trước master, rồi master chạy một lần cho cả teaser và chương
+trình, nên audio chỉ thành AAC đúng một lần. Kiểm chứng: test
+`test_the_cut_and_its_cold_open_keep_video_and_audio_together`. Chạy thật resolve → render → verify
+trên một job có cold-open: hình và tiếng đều bắt đầu ở 0, không có bước khung nào dài hơn 1 khung,
+và `verify` đạt, không có issue nào. `loudnorm` xử lý theo khối 100ms nên tiếng của `src.mp4` dài
+hơn hình tối đa 0.1s ở cuối. Đây là hành vi có sẵn và vô hại.
 
 ### Ba tối ưu tốc độ không đổi hình (`resolve_cut.py`)
 
@@ -646,6 +659,7 @@ chứa đúng asset nó dùng.
 | Triệu chứng | Nguyên nhân thật | Cách xử lý |
 |---|---|---|
 | Tiếng lệch hình sau khi cắt | `aselect` cho qua toàn bộ audio frame trên build này | `atrim`+`concat`, có assert |
+| Khựng ~54ms ở mối nối cold-open; hình `src.mp4` bắt đầu ở 0.021s | Mảnh trung gian mang AAC: priming 1024 mẫu làm concat demuxer dời cả file | Audio giữ PCM (.mov) tới bước master; teaser ghép trước master |
 | Nhạc nền im ru | Remotion `<Audio loop>` + volume callback render ra im lặng | `BgmDucked` tile nhiều `<Audio>` |
 | PiP có viền trắng | `@remotion/media <Video>` bỏ qua `objectFit:cover` | dùng `OffthreadVideo` |
 | Render chết "No frame found at position" | compositor trượt frame khi concurrency cao | tự thử lại ở nửa concurrency |

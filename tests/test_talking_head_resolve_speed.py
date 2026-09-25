@@ -15,18 +15,21 @@ import pytest
 
 from lib.talking_head_edit import resolve_cut
 from lib.talking_head_edit.resolve_cut import (
+    apply_master_audio,
     cut_and_grade_multi,
     extract_span,
     extract_span_audio,
     extract_video_slice,
     join_span_slices,
     plan_slices,
+    prepend_teaser,
     slice_bounds,
     timeline_grid_filter,
 )
 from lib.talking_head_edit.resolve_media import (
     _blemish_reduce_chain,
     build_grade_chain,
+    probe_duration,
     stream_durations,
 )
 from lib.talking_head_edit.resolve_spans import Span
@@ -153,7 +156,7 @@ def test_a_span_split_into_pieces_decodes_to_the_same_frames(tmp_path, tempo, ra
     pieces = [extract_video_slice(span, start, end, frames, tmp_path / f"v{i}.mp4",
                                   chain, tempo, 30, "ultrafast", 0, 1, source_fps)
               for i, (start, end, frames) in enumerate(slice_bounds(span, 3, 30, tempo))]
-    audio = extract_span_audio(span, tmp_path / "a.m4a", tempo)
+    audio = extract_span_audio(span, tmp_path / "a.wav", tempo)
     split = join_span_slices(pieces, audio, tmp_path / "split.mp4")
 
     assert _decoded_md5(split) == _decoded_md5(whole)
@@ -182,3 +185,45 @@ def test_a_resolve_with_one_long_span_uses_every_worker_and_stays_in_sync(tmp_pa
     # container duration: the AAC tail rounds up to whole 1024-sample frames
     assert abs(total - 7.2 / 1.08) < 0.05
 
+
+
+def _stream_starts(path: Path) -> dict[str, float]:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,start_time",
+         "-of", "csv=p=0", str(path)], capture_output=True, text=True, check=True)
+    return {kind: float(start) for kind, start in
+            (line.split(",") for line in result.stdout.split())}
+
+
+def _largest_video_step(path: Path) -> float:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "packet=pts_time",
+         "-of", "csv=p=0", str(path)], capture_output=True, text=True, check=True)
+    times = sorted(float(t) for t in result.stdout.split())
+    return max(b - a for a, b in zip(times, times[1:]))
+
+
+def test_the_cut_and_its_cold_open_keep_video_and_audio_together(tmp_path):
+    """AAC pieces used to start every src.mp4's video 21ms after its audio, and
+    the cold-open join left a 54ms hole in the video. PCM pieces butt together."""
+    source = tmp_path / "phone60.mp4"
+    _encode_source(source, seconds=8)
+    spans = [Span("s0", source, 0.3, 3.1), Span("s0", source, 4.2, 7.7)]
+    src = tmp_path / "src.mp4"
+    premaster = tmp_path / "premaster.mov"
+    total, _ = cut_and_grade_multi(
+        spans, src, {"__all__": ""}, 1.08, fps=30, preset="ultrafast", crf=30,
+        work_dir=tmp_path, probes={"s0": {"fps": 60.0}}, keep_joined=premaster)
+
+    assert _stream_starts(src) == {"video": 0.0, "audio": 0.0}
+    assert _largest_video_step(src) < 1.5 / 30
+
+    cut = probe_duration(premaster)
+    joined = prepend_teaser(premaster, 1.237, 3.087, fps=30, preset="ultrafast", crf=30)
+    final = apply_master_audio(premaster, src)
+
+    assert joined == pytest.approx(cut + 56 / 30, abs=0.001)   # 1.85s snapped to 56 frames
+    # loudnorm works in 100ms blocks, so the master pass rounds audio up to one
+    assert 0 <= final - joined < 0.1 and 0 <= total - cut < 0.1
+    assert _stream_starts(src) == {"video": 0.0, "audio": 0.0}
+    assert _largest_video_step(src) < 1.5 / 30
