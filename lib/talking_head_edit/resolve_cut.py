@@ -22,6 +22,7 @@ Dependency direction is one-way: this module reads from `resolve_media` and
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -43,6 +44,9 @@ AV_TOLERANCE = 0.35  # max acceptable |video - audio| duration after cutting
 # already been shown to make a subsequent Remotion render drop frames on this
 # machine (see the traps table in docs/talking-head-autoedit.md).
 MAX_SPAN_WORKERS = 4
+# A slice shorter than this spends more on seeking and x264 warm-up than the
+# parallelism wins back.
+MIN_SLICE_SECONDS = 8.0
 # A video stream whose size per second moves more than this between the joined
 # file and the master-audio output was re-encoded rather than copied.
 COPY_SIZE_TOLERANCE = 0.02
@@ -71,10 +75,166 @@ _SEGMENT_FORMAT = ["-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "-ac", 
                    "-video_track_timescale", "90000"]
 
 
+def timeline_grid_filter(source_fps: float | None, fps: int, tempo: float,
+                         start_time: float = 0.0) -> str | None:
+    """`fps=` filter that puts source frames on the timeline grid BEFORE the grade chain.
+
+    The timeline is `fps` (30) but phones shoot 60: left to `-r` at the output,
+    every filter in the grade chain ran on twice the frames `-r` then threw
+    away — for the skin/blemish chain, half of the whole resolve. A tempo
+    speed-up packs more source time into each output second, so frames are
+    taken at `fps / tempo`: after `setpts=PTS/tempo` exactly `fps` remain and
+    `-r` has nothing left to drop or pad. On footage already at the timeline
+    rate the filter passes every frame through.
+
+    `start_time` (post-seek input seconds) says where the grid starts; the
+    filter rounds it to whole output periods from the seek point, which is why
+    `extract_video_slice` seeks a whole number of periods early.
+    Unknown source fps → no filter; `-r` does the job as before.
+    """
+    if not source_fps or tempo <= 0:
+        return None
+    # A ratio, not a rounded decimal: 30/1.08 must stay exact over a long span.
+    rate = f"{fps}" if abs(tempo - 1.0) < 1e-6 else f"{fps}/{tempo:g}"
+    return f"fps=fps={rate}:start_time={start_time:.6f}"
+
+
+def timeline_frames(source_seconds: float, fps: int, tempo: float) -> int:
+    """Frames a stretch of source occupies on the timeline after tempo."""
+    return max(1, round(source_seconds / tempo * fps))
+
+
+def _video_filters(grade_chain: str, tempo: float, fps: int,
+                   source_fps: float | None, grid_start: float = 0.0) -> str:
+    grid = timeline_grid_filter(source_fps, fps, tempo, grid_start)
+    filters = [grid] if grid else []
+    if grade_chain:
+        filters.append(grade_chain)
+    filters.append("setpts=PTS-STARTPTS")
+    if abs(tempo - 1.0) > 1e-6:
+        filters.append(f"setpts=PTS/{tempo}")
+    return ",".join(filters)
+
+
+def plan_slices(durations: list[float], workers: int,
+                min_slice: float = MIN_SLICE_SECONDS) -> list[int]:
+    """How many pieces each span's video is encoded in, side by side.
+
+    The grade chain's filters run one after another, so one ffmpeg cannot fill
+    the budget: 32s of 60fps footage with the skin/blemish chain averaged 3.4
+    of 6 cores in one piece, 5.7 in four (634s → 128s, with the frame grid and
+    `lut2` mask). With fewer spans than workers the rest of the budget sat
+    idle. Spare workers go to whichever span has the longest pieces, while
+    every piece stays at least `min_slice` long.
+    """
+    counts = [1] * len(durations)
+    for _ in range(max(0, workers - len(durations))):
+        best = max(range(len(durations)),
+                   key=lambda i: durations[i] / (counts[i] + 1), default=None)
+        if best is None or durations[best] / (counts[best] + 1) < min_slice:
+            break
+        counts[best] += 1
+    return counts
+
+
+def slice_bounds(span: Span, pieces: int, fps: int,
+                 tempo: float) -> list[tuple[float, float, int]]:
+    """(source start, source end, frames) per piece, cut on the output frame grid.
+
+    Every boundary sits exactly on an output frame, and each piece is capped at
+    its own frame count, so the pieces add up to the frames the unsplit span
+    would have — none doubled at a join, none lost.
+    """
+    total = timeline_frames(span.duration, fps, tempo)
+    step = tempo / fps   # source seconds per output frame
+    edges = [round(total * index / pieces) for index in range(pieces + 1)]
+    bounds = []
+    for index in range(pieces):
+        start = span.start + edges[index] * step
+        end = span.end if index == pieces - 1 else span.start + edges[index + 1] * step
+        bounds.append((start, end, edges[index + 1] - edges[index]))
+    return bounds
+
+
+def extract_video_slice(span: Span, start: float, end: float, frames: int, out_path: Path,
+                        grade_chain: str, tempo: float, fps: int, preset: str, crf: int,
+                        parallel_jobs: int, source_fps: float | None) -> Path:
+    """Video only, `frames` frames from `start`: one piece of a split span.
+
+    The `fps` filter rounds its grid to whole output periods counted from the
+    seek point, so a piece must seek a whole number of periods before `start`
+    for its grid to line up with the unsplit span's. It seeks at least one
+    source frame early — the frame nearest the first grid point may sit just
+    before it, and the unsplit span would have used that one. The first piece
+    seeks exactly where the unsplit span does. `-frames:v` ends every piece on
+    the grid.
+    """
+    grid = timeline_grid_filter(source_fps, fps, tempo)
+    period = tempo / fps   # source seconds per output frame
+    lead_periods = 0
+    if grid and start - span.start > 1e-9:
+        lead_periods = min(math.ceil(1.0 / source_fps / period - 1e-9),
+                           math.floor(start / period + 1e-9))
+    seek = start - lead_periods * period
+    result = subprocess.run(
+        ["ffmpeg", "-y", *ffmpeg_decode_threads(parallel_jobs),
+         "-ss", f"{seek:.6f}", "-to", f"{end:.6f}", "-i", str(span.path),
+         "-vf", _video_filters(grade_chain, tempo, fps, source_fps, lead_periods * period),
+         "-an",
+         "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
+         *ffmpeg_threads(parallel_jobs), "-pix_fmt", "yuv420p",
+         "-video_track_timescale", "90000", "-r", str(fps), "-frames:v", str(frames),
+         str(out_path), "-loglevel", "error"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not out_path.exists():
+        raise ResolveError(
+            f"ffmpeg cắt lát {span.src_id} [{start:.2f}-{end:.2f}] thất bại: "
+            f"{result.stderr.strip()[:400]}")
+    return out_path
+
+
+def extract_span_audio(span: Span, out_path: Path, tempo: float) -> Path:
+    """The whole span's audio in one pass, so splitting the video adds no audio seam."""
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-ss", f"{span.start:.6f}", "-to", f"{span.end:.6f}",
+         "-i", str(span.path), "-vn", "-af", build_audio_span_chain(tempo, span.duration),
+         "-c:a", "aac", "-ar", "48000", "-ac", "2", str(out_path), "-loglevel", "error"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not out_path.exists():
+        raise ResolveError(
+            f"ffmpeg tách tiếng span {span.src_id} thất bại: {result.stderr.strip()[:400]}")
+    return out_path
+
+
+def join_span_slices(video_slices: list[Path], audio: Path, out_path: Path) -> Path:
+    """Video pieces + the span's audio → one segment, both streams copied."""
+    list_file = out_path.with_name(f"{out_path.stem}_slices.txt")
+    list_file.write_text(
+        "".join(f"file '{p.resolve().as_posix()}'\n" for p in video_slices), encoding="utf-8")
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
+             "-i", str(audio), "-map", "0:v", "-map", "1:a", "-c", "copy",
+             "-video_track_timescale", "90000", str(out_path), "-loglevel", "error"],
+            capture_output=True, text=True,
+        )
+    finally:
+        list_file.unlink(missing_ok=True)
+    if result.returncode != 0 or not out_path.exists():
+        raise ResolveError(f"Ghép các lát của span thất bại: {result.stderr.strip()[:400]}")
+    for piece in (*video_slices, audio):
+        piece.unlink(missing_ok=True)
+    return out_path
+
+
 def extract_span(span: Span, out_path: Path, grade_chain: str, tempo: float,
                  fps: int = 30, preset: str = "medium", crf: int = 17,
-                 copy_streams: bool = False, parallel_jobs: int = 1) -> Path:
-    """Encode one span. THE ONLY PLACE VIDEO IS ENCODED.
+                 copy_streams: bool = False, parallel_jobs: int = 1,
+                 source_fps: float | None = None) -> Path:
+    """Encode one span. With `extract_video_slice` (the same encode, for one
+    piece of a span split across workers), THE ONLY PLACE VIDEO IS ENCODED.
 
     Everything after this point copies the video stream. Two encodes would undo
     the whole sharpness effort measured on this pipeline: the deliverable's face
@@ -93,18 +253,17 @@ def extract_span(span: Span, out_path: Path, grade_chain: str, tempo: float,
         # Fall through to a real encode: a copy that failed is not worth
         # diagnosing here, and the encode path always works.
 
-    video_filters = [grade_chain] if grade_chain else []
-    video_filters.append("setpts=PTS-STARTPTS")
-    if abs(tempo - 1.0) > 1e-6:
-        video_filters.append(f"setpts=PTS/{tempo}")
     audio_chain = build_audio_span_chain(tempo, span.duration)
 
+    # `-frames:v` stops `-r` padding the tail: halving 60fps at the output made
+    # a 2.000s span 62 frames (2.067s of video over 2.000s of audio).
     result = subprocess.run(
         ["ffmpeg", "-y", *ffmpeg_decode_threads(parallel_jobs),
-         "-ss", f"{span.start:.3f}", "-to", f"{span.end:.3f}", "-i", str(span.path),
-         "-vf", ",".join(video_filters), "-af", audio_chain,
+         "-ss", f"{span.start:.6f}", "-to", f"{span.end:.6f}", "-i", str(span.path),
+         "-vf", _video_filters(grade_chain, tempo, fps, source_fps), "-af", audio_chain,
          "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
          *ffmpeg_threads(parallel_jobs), *_SEGMENT_FORMAT, "-r", str(fps),
+         "-frames:v", str(timeline_frames(span.duration, fps, tempo)),
          str(out_path), "-loglevel", "error"],
         capture_output=True, text=True,
     )
@@ -245,6 +404,12 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
     def chain_for(span: Span) -> str:
         return grade_chains.get(span.src_id, grade_chains.get("__all__", ""))
 
+    def source_fps_of(span: Span) -> float | None:
+        try:
+            return float(((probes or {}).get(span.src_id) or {}).get("fps") or 0) or None
+        except (TypeError, ValueError):
+            return None
+
     # Fast path only when EVERY span qualifies: mixing copied and encoded
     # segments produces files the concat demuxer will not join.
     copy_all = bool(target_size) and all(
@@ -253,17 +418,40 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
         for span in spans)
 
     segments: list[Path] = []
-    # Parallel spans share the CPU budget rather than each taking every core.
-    workers = max(1, min(max_workers, cpu_budget(), len(spans)))
+    # Parallel pieces share the CPU budget rather than each taking every core.
+    cap = max(1, min(max_workers, cpu_budget()))
+    # A span whose source fps is unknown gets no pinned frame grid, so its
+    # pieces could not be joined frame-exactly: it stays in one piece.
+    pieces = ([1] * len(spans) if copy_all
+              else plan_slices([span.duration if source_fps_of(span) else 0.0
+                                for span in spans], cap, MIN_SLICE_SECONDS))
+    workers = max(1, min(cap, sum(pieces)))
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [
-                pool.submit(extract_span, span, segments_dir / f"seg_{index:04d}.mp4",
-                            chain_for(span), tempo, fps, preset, crf, copy_all, workers)
-                for index, span in enumerate(spans)
-            ]
+            planned: list[tuple[Path, list[Any], Any]] = []
+            for index, (span, count) in enumerate(zip(spans, pieces)):
+                segment = segments_dir / f"seg_{index:04d}.mp4"
+                if count == 1:
+                    planned.append((segment, [pool.submit(
+                        extract_span, span, segment, chain_for(span), tempo, fps,
+                        preset, crf, copy_all, workers, source_fps_of(span))], None))
+                    continue
+                slices = [pool.submit(
+                    extract_video_slice, span, start, end, frames,
+                    segments_dir / f"seg_{index:04d}_v{part:02d}.mp4", chain_for(span),
+                    tempo, fps, preset, crf, workers, source_fps_of(span))
+                    for part, (start, end, frames)
+                    in enumerate(slice_bounds(span, count, fps, tempo))]
+                audio = pool.submit(extract_span_audio, span,
+                                    segments_dir / f"seg_{index:04d}_a.m4a", tempo)
+                planned.append((segment, slices, audio))
             # Ordered by index, not by completion: the timeline is the span order.
-            segments = [future.result() for future in futures]
+            for segment, video, audio in planned:
+                if audio is None:
+                    segments.append(video[0].result())
+                else:
+                    segments.append(join_span_slices(
+                        [future.result() for future in video], audio.result(), segment))
 
         durations = [probe_duration(segment) for segment in segments]
         seams: list[float] = []
@@ -286,6 +474,7 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
         if on_log:
             on_log(f"{len(spans)} span → {total:.1f}s"
                    + (" (fast path -c copy)" if copy_all else "")
+                   + (f", {sum(pieces)} lát song song" if sum(pieces) > len(spans) else "")
                    + f", {len(seams)} mối nối")
         return total, seams
     finally:

@@ -38,7 +38,7 @@ Toàn bộ độ chính xác của pipeline dựa trên **một đồng hồ duy
 | `direct` | AI dựng khung + caption (nhiều call song song) | ~24s |
 | `audit` | LLM kiểm từng cut + kiểm tài nguyên có thật + đo chất lượng | ~7s |
 | `calibrate` | **TẮT mặc định** — trượt phép thử mù, xem phần "Gemini có thực sự nghe/nhìn được để chấm chất lượng không" | ~35s khi bật |
-| `resolve` | ffmpeg cắt/grade/tempo/cold-open + ánh xạ mọi mốc thời gian | ~4 phút |
+| `resolve` | ffmpeg cắt/grade/tempo/cold-open + ánh xạ mọi mốc thời gian | ~4 phút (có làm mịn da/giảm mụn: nhanh ~5 lần sau khi chia lát, xem "Ba tối ưu tốc độ") |
 | `render` | Remotion → final.mp4 | ~370s @1080x1920 |
 | `verify` | đo lại file: luma, LUFS, lệch A/V, độ dài, nhạc nền có vào mix không, **video có bị giật không**, b-roll có thật xuất hiện không, ảnh soi mối nối đáng nghi | ~25s |
 
@@ -161,7 +161,7 @@ Trong UI — luồng project:
 
 | Nút (trang job) | Ý nghĩa |
 |---|---|
-| **Xuất MP4 trên máy này** / Nháp 540p | Chạy ngay trên máy, FIFO queue local, $0 (+ confirm) |
+| **Xuất MP4 trên máy này** / Nháp 540p | Chạy ngay trên máy, FIFO queue local, $0 (+ confirm). Bản full (kể cả Colab và nút tạo outro/ảnh bìa) tự chạy `verify` sau render; nháp 540p thì không, vì `verify` đo `final.mp4` chứ không đo `preview_50.mp4` |
 | **Xếp lịch cloud** | Đưa job vào batch queue (free, không thuê máy) |
 | **Cloud ngay…** | dry_run + modal xác nhận chi phí → thuê 1 máy cho job này |
 
@@ -419,6 +419,36 @@ spans (nguồn, giây bắt đầu, giây kết thúc)
    └─ ffmpeg -i joined -c:v copy -af "<cleanup,compressor,limiter,loudnorm,aresample>"
               → src.mp4                            ← audio encode lại, VIDEO COPY
 ```
+
+### Ba tối ưu tốc độ không đổi hình (`resolve_cut.py`)
+
+- **Chia lát song song.** Các filter trong chuỗi grade chạy nối tiếp nhau, nên một ffmpeg không dùng
+  hết ngân sách CPU: trung bình chỉ 3.4/6 core. Khi số span ít hơn số worker, `plan_slices`
+  chia span dài thành các lát ≥ `MIN_SLICE_SECONDS` (8s) để encode song song, trong giới hạn
+  `MAX_SPAN_WORKERS` và `AUTOEDIT_CPU_BUDGET`. Lát cắt đúng trên lưới khung đầu ra và bị chặn bằng
+  `-frames:v`. Tiếng của cả span encode một lần (`extract_span_audio`), nên không sinh mối nối
+  âm thanh mới. Lát ghép lại bằng `-c copy`, video vẫn chỉ encode một lần. Span không rõ fps nguồn
+  thì không chia.
+- **Lấy khung theo lưới timeline trước khi grade.** `timeline_grid_filter` đặt `fps=30/tempo` ở đầu
+  chuỗi, nên nguồn 60fps không còn phải grade gấp đôi số khung rồi để `-r` bỏ đi một nửa. Nó còn
+  chữa luôn lỗi đệm đuôi: trước đây một span 2.000s ở 60fps ra 62 khung (video 2.067s trên
+  tiếng 2.000s).
+- **Mặt nạ da bằng `lut2` thay cho `geq`.** Cho ra kết quả giống hệt từng bit (cùng framemd5), và
+  giảm CPU của chuỗi lọc từ ~178 xuống ~90 CPU-giây cho 3s footage 1440×2560@60.
+
+Số đo resolve (2026-09-25, 32s footage 1440×2560@60fps, tempo 1.08, grade của job thật có
+`skin_smooth` 0.25 + `blemish_reduce` 0.3 + `sharpen` 0.4): code cũ mất **634s** thực và 2178
+CPU-giây, code mới mất **128s** và 729 CPU-giây (4 lát). Độ chi tiết vùng mặt bằng nhau (Laplacian
+2.315 so với 2.332). Hai bản chọn khung nguồn lệch nhau tối đa một khung (1/60s) ở một số vị trí,
+cùng mức chênh với hai khung nguồn liền kề (SSIM ~0.97). Với footage không grade (`grade: {}`)
+thì không có lợi ích: giải mã và x264 vốn đã đa luồng, CPU-giây hai bản ngang nhau (~180), còn
+thời gian thực dao động 30–56s theo tải máy ở cả hai bản.
+
+Kiểm chứng: `tests/test_talking_head_resolve_speed.py` so khung ở chế độ lossless giữa bản chia
+lát và bản không chia (nguồn 60 và 29.97fps, tempo 1.0 và 1.08). Khi quét 48 tổ hợp (nguồn
+25/29.97/50/60fps, tempo 1.0/1.06/1.15, 2–6 lát), 45 tổ hợp khớp từng khung. 3 tổ hợp còn lại
+là hoà thật sự: nguồn 50fps với điểm cắt rơi đúng giữa hai khung nguồn, và hai bên chọn hai
+khung lân cận (lệch 20ms), cả hai đều gần mốc lưới như nhau.
 
 **Vì sao bước cuối phải `-c:v copy`, và vì sao nó được assert chứ không được tin:** cách làm hiển
 nhiên là encode span → concat → encode lại để chạy loudnorm. Như thế video encode **2 lần** và xoá
