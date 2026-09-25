@@ -79,18 +79,31 @@ class TestJobLifecycle:
     def test_unknown_job_is_404(self, client):
         assert client.get("/api/jobs/khong-co-that").status_code == 404
 
-    def test_render_queues_only_the_render_stage(self, client):
+    def test_a_draft_render_is_not_verified(self, client):
+        """A draft writes preview_50.mp4; verify reads final.mp4 and would
+        report on a stale full render instead of this one."""
         job = make_job(client)
         client.post(f"/api/jobs/{job.job_id}/render?scale=0.5")
         assert client.submitted[-1].stages == ["render"]
         assert job.load()["options"]["render_scale"] == 0.5
 
-    def test_visuals_queues_design_then_render(self, client):
+    @pytest.mark.parametrize("location", ["local", "colab"])
+    def test_a_full_render_is_verified(self, client, location):
+        job = make_job(client)
+        client.post(f"/api/jobs/{job.job_id}/render?location={location}")
+        assert client.submitted[-1].stages == ["render", "verify"]
+
+    def test_visuals_queues_design_then_render_then_verify(self, client):
         job = make_job(client)
         response = client.post(f"/api/jobs/{job.job_id}/visuals")
         assert response.status_code == 200
-        assert client.submitted[-1].stages == ["visuals", "render"]
+        assert client.submitted[-1].stages == ["visuals", "render", "verify"]
         assert client.submitted[-1].use_cache is False
+
+    def test_visuals_after_a_draft_render_skips_verify(self, client):
+        job = make_job(client, render_scale=0.5)
+        client.post(f"/api/jobs/{job.job_id}/visuals")
+        assert client.submitted[-1].stages == ["visuals", "render"]
 
     def test_revise_queues_patch_then_recut(self, client):
         job = make_job(client)

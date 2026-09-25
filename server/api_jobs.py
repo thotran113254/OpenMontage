@@ -235,12 +235,25 @@ def generate_visuals(job_id: str) -> dict[str, Any]:
     Image generation is a gateway call (30-90s) so this goes through the same
     worker as render — the UI watches the job stream like any other stage.
     """
-    _job(job_id)
-    position = _submit(QueuedRun(job_id, stages=["visuals", "render"], use_cache=False))
+    job = _job(job_id)
+    stages = ["visuals", *render_stages(job.load().get("options") or {})]
+    position = _submit(QueuedRun(job_id, stages=stages, use_cache=False))
     return {"job_id": job_id, "queue_position": position}
 
 
 RENDER_LOCATIONS = ("local", "colab")
+
+
+def render_stages(options: dict[str, Any]) -> list[str]:
+    """Render, then measure the file it produced.
+
+    `verify` reads `final.mp4`; a draft (render_scale < 1) writes
+    `preview_<n>.mp4` instead, so verifying after a draft would grade a stale
+    full render — or nothing — and report it as this run's result.
+    """
+    if float(options.get("render_scale", 1.0) or 1.0) >= 1.0:
+        return ["render", "verify"]
+    return ["render"]
 
 
 @router.post("/jobs/{job_id}/render", response_model=RunStagesResponse)
@@ -253,7 +266,7 @@ def render_job(job_id: str, scale: float = 1.0, location: str = "local") -> dict
     state["options"] = merge_options(state.get("options", {}),
                                      {"render_scale": scale, "render_location": location})
     job.save(state)
-    position = _submit(QueuedRun(job_id, stages=["render"], use_cache=False))
+    position = _submit(QueuedRun(job_id, stages=render_stages(state["options"]), use_cache=False))
     return {"job_id": job_id, "queue_position": position}
 
 
