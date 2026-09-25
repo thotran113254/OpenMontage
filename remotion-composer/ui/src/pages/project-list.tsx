@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ProjectSummary, api } from "../api/client";
+
+const groupKey = (folder: string | undefined) => folder?.trim() || "";
 
 export const ProjectListPage: React.FC<{
   onOpen: (id: string) => void;
@@ -8,51 +10,98 @@ export const ProjectListPage: React.FC<{
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [error, setError] = useState("");
 
-  const load = () =>
-    api.listProjects().then(setProjects).catch((exception) => setError(String(exception)));
-
   useEffect(() => {
-    void load();
+    api.listProjects().then(setProjects).catch((exception) => setError(String(exception)));
   }, []);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, ProjectSummary[]>();
+    for (const item of projects) {
+      const key = groupKey(item.folder);
+      const list = map.get(key) || [];
+      list.push(item);
+      map.set(key, list);
+    }
+    const keys = Array.from(map.keys()).sort((a, b) => {
+      if (!a) return 1;
+      if (!b) return -1;
+      return a.localeCompare(b, "vi");
+    });
+    return keys.map((key) => ({ key, items: map.get(key) || [] }));
+  }, [projects]);
+
+  const hasGroups = grouped.some((g) => g.key);
 
   return (
     <div className="stack">
       <div className="card">
-        <div className="row" style={{ alignItems: "center" }}>
-          <h2 style={{ margin: 0 }}>Project</h2>
-          <span className="muted small">
-            Nguồn upload một lần, dựng bao nhiêu bản cũng được.
-          </span>
-          <span style={{ flex: 1 }} />
-          <button className="primary" onClick={onNew}>+ Project mới</button>
-        </div>
+        <h2 style={{ margin: 0 }}>Nhà sáng tạo</h2>
+        <p className="muted small" style={{ marginTop: 8 }}>
+          Chọn người → mở video → gắn nhạc/tag → tạo short.
+        </p>
       </div>
 
       {error && <p className="error-text small">{error}</p>}
       {projects.length === 0 && !error && (
-        <p className="muted small">Chưa có project nào.</p>
+        <div className="empty-state">
+          <h2>Bắt đầu bằng nhà sáng tạo</h2>
+          <p className="muted small" style={{ maxWidth: 420, margin: "0 auto 16px" }}>
+            Tạo một project cho người đó. Rồi upload video talking-head — mỗi file thành một short.
+          </p>
+          <button className="primary" onClick={onNew}>
+            + Thêm nhà sáng tạo
+          </button>
+        </div>
       )}
 
-      {projects.map((project) => (
-        <div key={project.project_id} className="card" style={{ display: "flex", gap: 12 }}>
-          {project.thumb ? (
-            <img
-              src={`/api/projects/${project.project_id}/sources/s0/thumb`}
-              alt=""
-              style={{ width: 64, borderRadius: 6, alignSelf: "flex-start" }}
-            />
-          ) : null}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="row" style={{ alignItems: "center", gap: 8 }}>
-              <b>{project.title}</b>
-              <span className="muted small">{project.project_id}</span>
-            </div>
-            <div className="muted small" style={{ marginTop: 4 }}>
-              {project.source_count} nguồn ({project.aroll_count} có lời) ·{" "}
-              {project.total_seconds.toFixed(0)}s tổng · {project.build_count} bản dựng
-            </div>
+      {grouped.map((group) => (
+        <div key={group.key || "_ungrouped"} className="stack">
+          {hasGroups && (
+            <h3 className="group-heading">{group.key || "Chưa chia nhóm"}</h3>
+          )}
+          <div className="person-grid">
+            {group.items.map((project) => {
+              const pending = project.pending_count ?? 0;
+              const ready = project.ready_count ?? 0;
+              const next =
+                project.aroll_count === 0
+                  ? "Chưa có video — bấm để upload"
+                  : pending > 0
+                    ? `${pending} video chờ tạo short`
+                    : ready > 0
+                      ? `${ready} short đã xong`
+                      : "Mở project";
+              return (
+                <button
+                  key={project.project_id}
+                  type="button"
+                  className="person-card"
+                  onClick={() => onOpen(project.project_id)}
+                >
+                  {project.thumb ? (
+                    <img
+                      src={`/api/projects/${project.project_id}/sources/s0/thumb`}
+                      alt=""
+                    />
+                  ) : (
+                    <div className="person-ph">
+                      {(project.title || "?").slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="person-meta">
+                    <b>{project.title}</b>
+                    <span className="muted small">
+                      {project.aroll_count} video
+                      {project.aroll_count > 0
+                        ? ` · ${ready} short xong · ${pending} chưa làm`
+                        : ""}
+                    </span>
+                    <span className="person-next muted small">{next}</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-          <button className="ghost" onClick={() => onOpen(project.project_id)}>Mở</button>
         </div>
       ))}
     </div>

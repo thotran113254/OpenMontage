@@ -136,12 +136,12 @@ autoedit-projects: ensure-venv
 	$(RUN_PYTHON) -m lib.talking_head_edit.cli --projects
 
 autoedit-server: ensure-venv
-	@echo "==> Job server on http://127.0.0.1:8756"
+	@echo "==> Job server on $${AUTOEDIT_BIND:-0.0.0.0}:$${AUTOEDIT_PORT:-8861}"
 	$(RUN_PYTHON) -m server.app
 
 autoedit-ui:
-	@echo "==> Web UI on http://localhost:5173 (needs autoedit-server running)"
-	cd remotion-composer && npx vite --config ui/vite.config.ts
+	@echo "==> Web UI on $${AUTOEDIT_PUBLIC_HOST:-127.0.0.1}:$${AUTOEDIT_UI_PORT:-5617} (needs autoedit-server running)"
+	cd remotion-composer && npm run ui
 
 # one command instead of two terminals — see run_autoedit_dev.py
 autoedit-dev: ensure-venv
@@ -155,6 +155,14 @@ autoedit-test: ensure-venv
 autoedit-ui-typecheck:
 	@echo "==> Typechecking web UI (ui/tsconfig.json)"
 	cd remotion-composer && npm run typecheck:ui
+
+# Synchronize backend FastAPI schemas -> OpenAPI -> TypeScript definitions
+api-sync: ensure-venv
+	@echo "==> Exporting OpenAPI schema from FastAPI backend..."
+	$(RUN_PYTHON) -c "import json; from server.app import app; json.dump(app.openapi(), open('remotion-composer/ui/src/api/openapi.json', 'w', encoding='utf-8'), indent=2, ensure_ascii=False); print('==> Exported remotion-composer/ui/src/api/openapi.json')"
+	@echo "==> Generating synchronized TypeScript types via openapi-typescript..."
+	npx --yes openapi-typescript remotion-composer/ui/src/api/openapi.json -o remotion-composer/ui/src/api/schema.d.ts
+	@echo "==> Synchronized backend API schema -> TypeScript definitions."
 
 # --- Cloud render (Vast.ai) --------------------------------------------------
 # cloud-render-offers: the dry-run shortlist -- read-only, creates zero instances.

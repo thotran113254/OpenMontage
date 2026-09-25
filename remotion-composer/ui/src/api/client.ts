@@ -1,8 +1,30 @@
 // Thin API layer over the Python job server. Vite proxies /api to it.
+// Synchronized with the FastAPI backend OpenAPI schema via schema.d.ts.
+
+import type { components, paths } from "./schema";
+
+export type { components, paths };
+export type Schemas = components["schemas"];
+
+export type ApiJobSummary = components["schemas"]["JobSummaryResponse"];
+export type ApiJobDetail = components["schemas"]["JobDetailResponse"];
+export type ApiProjectDetail = components["schemas"]["ProjectDetailResponse"];
+export type ApiProjectSummary = components["schemas"]["ProjectSummaryResponse"];
+export type ApiCreateProjectRequest = components["schemas"]["CreateProjectRequest"];
+export type ApiCreateJobRequest = components["schemas"]["CreateJobRequest"];
+export type ApiReviseRequest = components["schemas"]["ReviseRequest"];
+export type ApiRollbackRequest = components["schemas"]["RollbackRequest"];
+export type ApiChatRequest = components["schemas"]["ChatRequest"];
+export type ApiChatResponse = components["schemas"]["ChatResponse"];
+export type ApiGradePreviewResponse = components["schemas"]["GradePreviewResponse"];
+export type ApiAudioPreviewResponse = components["schemas"]["AudioPreviewResponse"];
+export type ApiClipPreviewResponse = components["schemas"]["ClipPreviewResponse"];
+export type ApiCloudStatusResponse = components["schemas"]["CloudStatusResponse"];
+export type ApiCloudQueueResponse = components["schemas"]["CloudQueueResponse"];
 
 export type StageName =
   | "probe" | "transcribe" | "select" | "direct" | "audit" | "calibrate"
-  | "resolve" | "render" | "verify";
+  | "resolve" | "render" | "verify" | "visuals";
 
 export interface StageState {
   status?: "pending" | "running" | "completed" | "failed";
@@ -19,6 +41,7 @@ export interface JobSummary {
   created_at: number;
   current_version: number;
   cost_usd?: number;
+  project_id?: string;
   stages: Record<StageName, StageState>;
   options: Record<string, unknown>;
 }
@@ -29,6 +52,14 @@ export interface JobDetail extends JobSummary {
   verify_report: VerifyReport | null;
   props: TimelineProps | null;
   has_final: boolean;
+  has_thumbnail?: boolean;
+  visuals_report?: {
+    kicker?: string;
+    accent?: string;
+    thumbnail_text?: string;
+    files?: Record<string, string | null>;
+    errors?: string[];
+  } | null;
   media_base: string;
   probe?: Record<string, unknown>;
 }
@@ -105,6 +136,34 @@ export interface TimelineProps {
   bgm?: { name: string; volume: number; durationSeconds: number };
 }
 
+/** One rejected cut the audit/verifier kept instead of removing. */
+export interface OutcomeBlockedCut {
+  w?: [number, number];
+  text?: string;
+  reason?: string;
+}
+
+/**
+ * What actually happened for a version/turn, in terms the UI can render as
+ * "Đã làm / Bị chặn / Chưa làm được" instead of a raw developer summary.
+ * Written by the pipeline after audit (`state.versions[i].outcome`); a chat
+ * turn only ever carries `options_changed` + `not_done`. All fields are
+ * optional and read defensively — the backend schema for this is landing
+ * concurrently, so older jobs/turns simply omit it.
+ *
+ * `cuts_proposed`/`cuts_applied`/`cuts_blocked` describe only what THIS
+ * version/turn asked for, not the whole job — `cuts_total_applied` is the
+ * separate whole-video count.
+ */
+export interface VersionOutcome {
+  cuts_proposed?: number;
+  cuts_applied?: number;
+  cuts_blocked?: OutcomeBlockedCut[];
+  cuts_total_applied?: number;
+  options_changed?: Record<string, unknown>;
+  not_done?: string[];
+}
+
 export interface JobVersion {
   version: number;
   kind: "director" | "revise" | "manual" | "rollback";
@@ -115,6 +174,8 @@ export interface JobVersion {
   changes?: {
     added: number; removed: number; modified: number; top_level_changed: string[];
   };
+  /** See `VersionOutcome`. Absent on jobs built before this landed. */
+  outcome?: VersionOutcome | null;
 }
 
 /** One graded frame of the RAW source — what resolve would bake into src.mp4. */
@@ -136,8 +197,8 @@ export interface GradeContext {
   height: number;
   source_width: number | null;
   measured_sharpen: { sharpen: number; clarity: number } | null;
-  /** measured = auto_sharpen's own reading · human = your grade_overrides · estimated = from upscale */
-  sharpen_source: "measured" | "human" | "estimated";
+  /** measured = opt-in calibration · human = explicit override · grade = requested grade only */
+  sharpen_source: "measured" | "human" | "grade";
   frame_preset: string;
 }
 
@@ -156,6 +217,23 @@ export interface LookPreset {
   name: string;
   grade: Record<string, number>;
   created_at: string;
+}
+
+/** Prompt + BGM + ticks reused across projects (`config/edit-styles.json`). */
+export interface EditStyle {
+  id: string;
+  title: string;
+  source_project_id?: string;
+  options: Record<string, unknown>;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface BgmTrack {
+  name: string;
+  group: string;
+  mood: string;
+  custom?: boolean;
 }
 
 export interface AudioSample {
@@ -215,14 +293,30 @@ export interface ProjectSource {
   has_audio: boolean;
   mean_volume_db: number | null;
   warnings?: string[];
+  added_at?: number;
+  /** Free-form tags for filtering across weeks/months. */
+  tags?: string[];
+  /** Human note for this clip. */
+  notes?: string;
+  /**
+   * Flexible metrics / CRM fields the user owns.
+   * Common keys: posted, posted_at, platform, url, views, likes…
+   */
+  meta?: Record<string, unknown>;
+  /** Preferred BGM for this clip (from shared library). Empty = AI pick at build. */
+  bgm_name?: string;
+  bgm_volume?: number | null;
 }
 
 export interface ProjectSummary {
   project_id: string;
   title: string;
+  folder?: string;
   created_at: number;
   source_count: number;
   aroll_count: number;
+  ready_count?: number;
+  pending_count?: number;
   total_seconds: number;
   build_count: number;
   thumb: string | null;
@@ -236,13 +330,18 @@ export interface Build {
   current_version: number;
   cost_usd: number;
   has_final: boolean;
+  has_thumbnail?: boolean;
+  media_base?: string;
   prompt: string;
+  source_ids?: string[];
+  source_labels?: string[];
   stages: Record<string, string | null>;
 }
 
 export interface ProjectDetail {
   project_id: string;
   title: string;
+  folder?: string;
   sources: ProjectSource[];
   assembly: Partial<AssemblyConfig>;
   assembly_resolved: AssemblyConfig;
@@ -320,6 +419,10 @@ export interface ChatTurn {
   to_version?: number | null;
   tokens?: number;
   error?: string;
+  /** Job options this turn changed, e.g. `{ tempo: 1.1 }`. See `VersionOutcome`. */
+  options_changed?: Record<string, unknown> | null;
+  /** Requests from the message this turn could not do, in plain Vietnamese. */
+  not_done?: string[] | null;
 }
 
 export interface ChatResult {
@@ -330,12 +433,58 @@ export interface ChatResult {
   diff: { diff?: Record<string, unknown> } | null;
   tokens: number;
   history: ChatTurn[];
+  /** Set when audit+resolve were queued after an applied chat turn. */
+  preview_queued?: boolean;
+  queue_position?: number;
 }
+
+/** Thrown by `json()` on a non-OK response. `code` is the server's machine-readable
+ * error code (e.g. `"unauthorized"`, `"job_busy"`) when the body is JSON shaped
+ * `{code, message}`; empty string otherwise (plain-text error bodies). */
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+let unauthorizedHandler: (() => void) | null = null;
+
+/** Registered once by the app shell so any 401 anywhere flips the whole app
+ * back to the login screen, not just the call site that happened to fail. */
+export function onUnauthorized(handler: () => void): void {
+  unauthorizedHandler = handler;
+}
+
+const parseErrorBody = (detail: string): { code: string; message: string } => {
+  try {
+    const parsed = JSON.parse(detail) as { code?: unknown; message?: unknown };
+    if (parsed && typeof parsed === "object") {
+      return {
+        code: typeof parsed.code === "string" ? parsed.code : "",
+        message: typeof parsed.message === "string" ? parsed.message : detail,
+      };
+    }
+  } catch {
+    /* plain-text error body, not JSON */
+  }
+  return { code: "", message: detail };
+};
 
 const json = async <T,>(response: Response): Promise<T> => {
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(detail || `${response.status} ${response.statusText}`);
+    const { code, message } = parseErrorBody(detail);
+    if (response.status === 401) unauthorizedHandler?.();
+    throw new ApiError(
+      response.status,
+      code,
+      message || `${response.status} ${response.statusText}`,
+    );
   }
   return response.json() as Promise<T>;
 };
@@ -348,7 +497,31 @@ const text = async (response: Response): Promise<string> => {
   return response.text();
 };
 
+export interface AutoeditConfig {
+  director_model: string;
+  gateway_configured: boolean;
+}
+
+export interface AuthStatus {
+  auth_required: boolean;
+  authenticated: boolean;
+}
+
 export const api = {
+  // ---- auth (cookie session; the token itself never touches client code) --
+  authStatus: () => fetch("/api/auth/status").then(json<AuthStatus>),
+
+  authLogin: (accessToken: string) =>
+    fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: accessToken }),
+    }).then(json<{ authenticated: boolean }>),
+
+  authLogout: () =>
+    fetch("/api/auth/logout", { method: "POST" }).then(json<{ authenticated: boolean }>),
+
+  config: () => fetch("/api/config").then(json<AutoeditConfig>),
   resources: () => fetch("/api/resources").then(json<any>),
   queue: () => fetch("/api/queue").then(json<{ running: string | null; pending: number }>),
   listJobs: () => fetch("/api/jobs").then(json<JobSummary[]>),
@@ -372,6 +545,9 @@ export const api = {
   render: (id: string, scale = 1) =>
     fetch(`/api/jobs/${id}/render?scale=${scale}`, { method: "POST" }).then(json<any>),
 
+  generateVisuals: (id: string) =>
+    fetch(`/api/jobs/${id}/visuals`, { method: "POST" }).then(json<{ job_id: string; queue_position: number }>),
+
   cancel: (id: string) =>
     fetch(`/api/jobs/${id}/cancel`, { method: "POST" }).then(json<{ cancelled: boolean }>),
 
@@ -392,7 +568,30 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ version }),
-    }).then(json<{ version: number; restored_from: number }>),
+    }).then(
+      json<{
+        version: number;
+        restored_from: number;
+        /** Job options restored to their value as of `restored_from`. */
+        options_changed?: Record<string, unknown>;
+        /** Set when the server queued a re-cut (resolve) for the restored spec. */
+        queue_position?: number;
+      }>,
+    ),
+
+  /** Deterministic cut/keep — no LLM in the loop. `w` ranges are word indices. */
+  cuts: (id: string, body: { cut?: [number, number][]; keep?: [number, number][] }) =>
+    fetch(`/api/jobs/${id}/cuts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(
+      json<{
+        version: number;
+        queue_position?: number;
+        report?: Record<string, unknown>;
+      }>,
+    ),
 
   saveProps: (id: string, props: TimelineProps) =>
     fetch(`/api/jobs/${id}/props`, {
@@ -428,6 +627,54 @@ export const api = {
       json<{ deleted: string }>,
     ),
 
+  listEditStyles: () => fetch("/api/edit-styles").then(json<EditStyle[]>),
+
+  saveEditStyle: (body: {
+    title: string;
+    options: Record<string, unknown>;
+    source_project_id?: string;
+  }) =>
+    fetch("/api/edit-styles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(json<EditStyle>),
+
+  updateEditStyle: (
+    id: string,
+    body: { title: string; options: Record<string, unknown>; source_project_id?: string },
+  ) =>
+    fetch(`/api/edit-styles/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(json<EditStyle>),
+
+  deleteEditStyle: (id: string) =>
+    fetch(`/api/edit-styles/${encodeURIComponent(id)}`, { method: "DELETE" }).then(
+      json<{ deleted: string }>,
+    ),
+
+  styleFromProject: (projectId: string, title?: string, options?: Record<string, unknown>) =>
+    fetch(`/api/edit-styles/from-project/${encodeURIComponent(projectId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, options }),
+    }).then(json<EditStyle>),
+
+  listBgm: () => fetch("/api/bgm").then(json<{ tracks: BgmTrack[]; groups: Record<string, string> }>),
+
+  uploadBgm: (file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return fetch("/api/bgm", { method: "POST", body: form }).then(json<BgmTrack>);
+  },
+
+  deleteBgm: (name: string) =>
+    fetch(`/api/bgm/${encodeURIComponent(name)}`, { method: "DELETE" }).then(
+      json<{ deleted: string }>,
+    ),
+
   previewAudio: (id: string, body: { at?: number; duration?: number; presets?: string[] }) =>
     fetch(`/api/jobs/${id}/preview/audio`, {
       method: "POST",
@@ -448,6 +695,7 @@ export const api = {
 
   createProject: (body: {
     title: string;
+    folder?: string;
     assembly?: Partial<AssemblyConfig>;
     keyterms?: string[];
     defaults?: Record<string, unknown>;
@@ -465,6 +713,7 @@ export const api = {
     id: string,
     body: {
       title?: string;
+      folder?: string;
       assembly?: Partial<AssemblyConfig>;
       keyterms?: string[];
       defaults?: Record<string, unknown>;
@@ -479,7 +728,17 @@ export const api = {
   updateSource: (
     projectId: string,
     sourceId: string,
-    body: { role?: string; order?: number; take_group?: string; label?: string },
+    body: {
+      role?: string;
+      order?: number;
+      take_group?: string;
+      label?: string;
+      tags?: string[];
+      notes?: string;
+      meta?: Record<string, unknown>;
+      bgm_name?: string;
+      bgm_volume?: number | null;
+    },
   ) =>
     fetch(`/api/projects/${projectId}/sources/${sourceId}`, {
       method: "PATCH",
@@ -500,6 +759,8 @@ export const api = {
   createBuild: (id: string, body: {
     options?: Record<string, unknown>;
     title?: string;
+    source_ids?: string[];
+    include_broll?: boolean;
     /** Omit = full pipeline. Pass e.g. prepare stages to stop before render. */
     stages?: string[];
     /** Default true. false = create job only, do not enqueue the worker. */
@@ -515,6 +776,28 @@ export const api = {
       queue_position: number | null;
       run: boolean;
       stages?: string[] | null;
+    }>),
+
+  createBuildsBatch: (id: string, body: {
+    source_ids: string[];
+    options?: Record<string, unknown>;
+    title?: string;
+    include_broll?: boolean;
+    stages?: string[];
+    run?: boolean;
+  }) =>
+    fetch(`/api/projects/${id}/jobs/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(json<{
+      jobs: Array<{
+        job_id: string;
+        project_id: string;
+        queue_position: number | null;
+        run: boolean;
+      }>;
+      failed: Array<{ source_id: string; error: string }>;
     }>),
 
   // ---- prompts -----------------------------------------------------------

@@ -133,7 +133,7 @@ export const GradePreviewPanel: React.FC<{
               ? "độ nét lấy từ số đo trên chính video này"
               : report.context.sharpen_source === "human"
                 ? "độ nét do bạn đặt trong grade_overrides"
-                : "độ nét suy từ tỉ lệ phóng (chưa resolve lần nào để đo)"}
+                : "chỉ làm nét nếu thông số chỉnh ảnh có yêu cầu"}
             {report.cached ? " · dùng lại ảnh đã dựng" : ""}
           </p>
         </>

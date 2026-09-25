@@ -35,7 +35,7 @@ export const LookPreview: React.FC<{
 
   return (
     <div className="card">
-      <h2>Thử màu &amp; tiếng trước khi cắt lại</h2>
+      <h2>Màu &amp; tiếng</h2>
       <div className="tabs">
         {TABS.map((entry) => (
           <button

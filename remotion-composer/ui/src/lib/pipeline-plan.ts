@@ -34,16 +34,19 @@ export const FULL_STAGES: StageKey[] = [...ALL_STAGES];
 /** Only Remotion + mechanical QA. */
 export const RENDER_STAGES: StageKey[] = ["render", "verify"];
 
+/** Plain-language stage names for non-technical users. The technical stage id
+ * (`probe`, `calibrate`, …) still shows up as a title tooltip wherever these
+ * labels are rendered — see stage-progress.tsx. */
 export const STAGE_LABELS: Record<StageKey, string> = {
   probe: "Đọc file",
   transcribe: "Tách lời",
   select: "Chọn take",
   direct: "AI dựng khung",
-  audit: "Kiểm duyệt cắt",
-  calibrate: "Dò thông số",
-  resolve: "Cắt + encode",
+  audit: "Kiểm cắt",
+  calibrate: "Dò màu/tiếng",
+  resolve: "Cắt & ghép",
   render: "Render MP4",
-  verify: "Đo kiểm",
+  verify: "Kiểm file cuối",
 };
 
 export type StageGroup = "llm" | "encode" | "render";
@@ -66,6 +69,12 @@ export const GROUP_LABEL: Record<StageGroup, string> = {
   render: "Render MP4 (CPU nặng)",
 };
 
+export const USER_PHASES: { id: string; label: string; stages: StageKey[] }[] = [
+  { id: "prep", label: "1. Lọc nội dung", stages: ["probe", "transcribe", "select"] },
+  { id: "ai", label: "2. AI dựng khung", stages: ["direct", "audit", "calibrate"] },
+  { id: "out", label: "3. Cắt & xuất", stages: ["resolve", "render", "verify"] },
+];
+
 /** How the build should run after create. */
 export type RunMode =
   | "prepare"
@@ -87,54 +96,54 @@ export interface RunModeMeta {
 export const RUN_MODES: RunModeMeta[] = [
   {
     id: "prepare",
-    title: "Dựng + duyệt (dừng trước render)",
+    title: "Xem trước (khuyên dùng)",
     summary:
-      "Chạy LLM + cắt/encode đến khi có preview. KHÔNG render MP4 — bạn xem lại rồi mới chọn render local / xếp batch cloud.",
+      "Cắt và xem khung trước, chưa xuất MP4. Bạn duyệt xong rồi mới bấm render trên máy này.",
     stages: PREPARE_STAGES,
     run: true,
     autoEnqueueCloud: false,
     tone: "ok",
     warnings: [
       "Tốn token ở bước Direct/Audit (LLM).",
-      "Resolve encode local có thể vài phút — chưa phải render cuối.",
-      "Sau khi xong: mở job → xem preview → Render local hoặc Xếp lịch cloud.",
+      "Encode preview có thể vài phút — chưa phải file cuối.",
+      "Sau khi xong: mở bản dựng → xem preview → Xuất MP4 trên máy này.",
     ],
   },
   {
     id: "prepare_and_queue",
-    title: "Dựng rồi xếp lịch cloud batch",
+    title: "Xem trước rồi xếp lịch cloud",
     summary:
-      "Giống trên, khi resolve xong tự xếp job vào lịch cloud. Bạn flush batch trên trang Lịch render (cần xác nhận tiền).",
+      "Giống xem trước, khi xong tự xếp vào lịch cloud. Flush batch trên trang Lịch cloud (cần xác nhận tiền).",
     stages: PREPARE_STAGES,
     run: true,
     autoEnqueueCloud: true,
     tone: "info",
     warnings: [
-      "Chỉ XẾP LỊCH — chưa thuê máy, chưa tốn tiền cloud.",
-      "Footage sẽ rời máy khi bạn bấm Render batch / Cloud ngay (có modal xác nhận).",
-      "Cloud config phải enabled khi flush; xếp lịch vẫn được khi cloud đang tắt.",
+      "Chỉ xếp lịch — chưa thuê máy, chưa tốn tiền cloud.",
+      "Footage rời máy khi bạn bấm Render batch / Cloud ngay (có xác nhận).",
+      "Cloud phải bật khi flush; xếp lịch vẫn được khi cloud đang tắt.",
     ],
   },
   {
     id: "full_local",
-    title: "Chạy full local (render ngay)",
+    title: "Xuất MP4 luôn (máy này)",
     summary:
-      "Cả pipeline trên máy này, gồm Render MP4 + verify. Không dừng để duyệt giữa chừng.",
+      "Chạy hết pipeline trên máy này, gồm render MP4. Không dừng giữa chừng để duyệt.",
     stages: null,
     run: true,
     autoEnqueueCloud: false,
     tone: "warn",
     warnings: [
-      "Render Remotion có thể 10–30+ phút, chiếm CPU full — không nên song song nhiều job.",
-      "Khó sửa prompt giữa chừng: muốn đổi khung phải dựng lại (Direct) rồi render lại.",
-      "Muốn gom batch cloud: chọn “dừng trước render” thay vì mode này.",
+      "Render Remotion có thể 10–30+ phút, chiếm CPU — đừng chạy nhiều bản cùng lúc.",
+      "Khó sửa prompt giữa chừng: muốn đổi khung phải dựng lại rồi render lại.",
+      "Muốn xem trước rồi mới xuất: chọn “Xem trước”.",
     ],
   },
   {
     id: "create_only",
     title: "Chỉ tạo job — chạy tay từng bước",
     summary:
-      "Tạo bản dựng, không tự chạy stage. Trên trang job bạn bấm từng nhóm (LLM → encode → render).",
+      "Tạo bản dựng, không tự chạy. Trên trang bản dựng bạn bấm từng nhóm (LLM → encode → render).",
     stages: null,
     run: false,
     autoEnqueueCloud: false,

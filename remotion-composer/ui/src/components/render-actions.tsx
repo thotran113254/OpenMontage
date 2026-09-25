@@ -20,6 +20,7 @@ export const RenderActions: React.FC<{
   const [working, setWorking] = useState(false);
   const [preview, setPreview] = useState<CloudPreview | null>(null);
   const [executing, setExecuting] = useState(false);
+  const [cloudEnabled, setCloudEnabled] = useState(false);
 
   const refresh = useCallback(() => {
     api
@@ -28,6 +29,10 @@ export const RenderActions: React.FC<{
         setQueued(res.queued);
         setEntry(res.entry);
       })
+      .catch(() => undefined);
+    api
+      .cloudStatus()
+      .then((s) => setCloudEnabled(Boolean(s.config?.enabled)))
       .catch(() => undefined);
   }, [jobId]);
 
@@ -109,22 +114,19 @@ export const RenderActions: React.FC<{
   return (
     <div className="render-actions">
       {!hasProps && (
-        <div className="callout warn">
-          <b>Chưa render được.</b> Cần xong bước encode (resolve) để có props/preview.
-          Dùng “① LLM + encode” ở trên trước.
-        </div>
+        <p className="muted small">Chưa có preview — chạy Cắt & xem trước trước.</p>
       )}
 
       <div className="render-group">
-        <span className="render-label">Chạy ngay (máy này) — $0</span>
+        <span className="render-label">Xuất video trên máy này</span>
         <div className="row" style={{ gap: 8 }}>
           <button
             className="primary"
             disabled={disabled}
             onClick={() => onLocalRender(1)}
-            title="Render MP4 full trên máy local — miễn phí, vào FIFO queue. Xác nhận trước khi bấm."
+            title="Xuất MP4 full trên máy này — miễn phí, vào hàng đợi. Có xác nhận trước khi chạy."
           >
-            Render MP4 local
+            Xuất MP4 trên máy này
           </button>
           <button
             disabled={disabled}
@@ -135,10 +137,11 @@ export const RenderActions: React.FC<{
           </button>
         </div>
         <p className="muted small">
-          ⚠ Local render có thể 10–30+ phút, full CPU. Một job render tại một thời điểm.
+          Render có thể 10–30 phút, chiếm CPU.
         </p>
       </div>
 
+      {(cloudEnabled || queued) && (
       <div className="render-group">
         <span className="render-label">Cloud — lịch (gom batch) hoặc ngay</span>
         <div className="row" style={{ gap: 8 }}>
@@ -176,7 +179,7 @@ export const RenderActions: React.FC<{
           “Render batch” mới tốn tiền — luôn bắt xác nhận.
         </p>
       </div>
-
+      )}
       {message && <p className="ok-text small" style={{ marginTop: 8 }}>{message}</p>}
       {error && <p className="error-text small" style={{ marginTop: 8 }}>{error}</p>}
       {queued && (

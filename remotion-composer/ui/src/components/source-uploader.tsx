@@ -64,10 +64,13 @@ const uploadOne = (
 export const SourceUploader: React.FC<{
   projectId: string;
   onUploaded: (sources: ProjectSource[]) => void;
-}> = ({ projectId, onUploaded }) => {
+  /** Compact: one button until user wants to add more (keeps list above the fold). */
+  compact?: boolean;
+}> = ({ projectId, onUploaded, compact = false }) => {
   const [items, setItems] = useState<Progress[]>([]);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(!compact);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const send = async (files: File[]) => {
@@ -100,36 +103,61 @@ export const SourceUploader: React.FC<{
   };
 
   return (
-    <div className="card">
-      <h3>Thêm nguồn quay</h3>
-      <div
-        onDragOver={(event) => {
-          event.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setDragging(false);
-          pick(event.dataTransfer.files);
-        }}
-        onClick={() => inputRef.current?.click()}
-        style={{
-          border: `2px dashed ${dragging ? "var(--info)" : "#39404d"}`,
-          borderRadius: 10,
-          padding: "26px 16px",
-          textAlign: "center",
-          cursor: busy ? "wait" : "pointer",
-          background: dragging ? "rgba(56,189,248,0.08)" : "transparent",
-        }}
-      >
-        <div style={{ fontSize: 15 }}>
-          {busy ? "Đang upload…" : "Kéo file video vào đây, hoặc bấm để chọn"}
-        </div>
-        <div className="muted small" style={{ marginTop: 6 }}>
-          Nhiều file cùng lúc được. Thứ tự bạn sắp ở dưới là thứ tự ghép.
-        </div>
-      </div>
+    <div className={compact && !expanded && items.length === 0 ? "" : "card"}>
+      {compact && !expanded && items.length === 0 ? (
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => {
+            setExpanded(true);
+            window.setTimeout(() => inputRef.current?.click(), 0);
+          }}
+        >
+          + Thêm video
+        </button>
+      ) : (
+        <>
+          <div className="row" style={{ alignItems: "center", marginBottom: 8 }}>
+            <h3 style={{ margin: 0 }}>{compact ? "Thêm video" : "Upload video"}</h3>
+            <span style={{ flex: 1 }} />
+            {compact && (
+              <button type="button" className="ghost small" onClick={() => setExpanded(false)}>
+                Thu gọn
+              </button>
+            )}
+          </div>
+          <div
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragging(false);
+              pick(event.dataTransfer.files);
+            }}
+            onClick={() => inputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            className={`dropzone ${dragging ? "on" : ""} ${compact ? "dropzone-compact" : ""}`}
+            style={{ cursor: busy ? "wait" : "pointer" }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                inputRef.current?.click();
+              }
+            }}
+          >
+            <div style={{ fontSize: compact ? 14 : 15 }}>
+              {busy ? "Đang upload…" : "Kéo file vào đây, hoặc bấm chọn"}
+            </div>
+            <div className="muted small" style={{ marginTop: 6 }}>
+              Mỗi file = một video. mp4 / mov.
+            </div>
+          </div>
+        </>
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -149,7 +177,7 @@ export const SourceUploader: React.FC<{
               style={{
                 height: 6,
                 borderRadius: 3,
-                background: "#2b3240",
+                background: "var(--line)",
                 marginTop: 4,
                 overflow: "hidden",
               }}
@@ -159,7 +187,7 @@ export const SourceUploader: React.FC<{
                   width: `${item.percent}%`,
                   height: "100%",
                   background:
-                    item.status === "error" ? "var(--danger, #f87171)" : "var(--info, #38bdf8)",
+                    item.status === "error" ? "var(--accent)" : "var(--ok)",
                   transition: "width .15s linear",
                 }}
               />
