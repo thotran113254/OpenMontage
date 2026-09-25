@@ -8,7 +8,7 @@ Skipping it WILL cause you to take the wrong action.
 
 ## This machine (local render)
 
-- **Render location:** local Remotion/FFmpeg. `config/cloud-render.json` stays `"enabled": false`. Do not rent Vast.ai unless the user explicitly asks.
+- **Render location:** local Remotion/FFmpeg, or Colab account 1's TPU v6e-1 (44 vCPU, fully automated: `render_location: "colab"` / `--render-location colab`, see `docs/colab-render.md`; never touch the `colab2` account). `config/cloud-render.json` stays `"enabled": false`. Do not rent Vast.ai unless the user explicitly asks.
 - **CPU:** 10 cores, ~30 GB RAM, no NVIDIA GPU — and **shared** with other projects. Pipeline runs at `nice 10` + `ionice` and sizes ffmpeg threads / Remotion workers from `AUTOEDIT_CPU_BUDGET` (default 60% of cores = 6); `OPENMONTAGE_RENDER_MAX_CONCURRENCY=5` in `.env`. See `lib/talking_head_edit/cpu_budget.py`.
 - **Storage:** Cloudflare R2 bucket `openmontage-assets` (presigned URLs; no public base URL). Auto-sync is off.
 - **Public bind:** VPS IP `<VPS_HOST>`, `AUTOEDIT_BIND=0.0.0.0`. Set `AUTOEDIT_API_TOKEN` in `.env` so the public API requires a token: automation sends `Authorization: Bearer`, the browser UI asks for it once at login (HttpOnly cookie).
