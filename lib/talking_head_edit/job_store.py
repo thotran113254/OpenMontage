@@ -87,6 +87,9 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     # Remotion's own default is 80, which softens the frame before x264 ever
     # sees it. This intermediate is thrown away, so don't compress it.
     "render_jpeg_quality": 100,
+    # "local" renders on this VPS; "colab" on Colab account 1's TPU v6e-1
+    # (44 vCPU) through lib/cloud_render/colab.py — see config/colab-render.json.
+    "render_location": "local",
     # Preserve the source unless the user opts into per-source calibration.
     # Explicit grade_overrides still win over those measurements.
     "auto_sharpen": False,

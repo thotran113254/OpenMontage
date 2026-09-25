@@ -240,11 +240,18 @@ def generate_visuals(job_id: str) -> dict[str, Any]:
     return {"job_id": job_id, "queue_position": position}
 
 
+RENDER_LOCATIONS = ("local", "colab")
+
+
 @router.post("/jobs/{job_id}/render", response_model=RunStagesResponse)
-def render_job(job_id: str, scale: float = 1.0) -> dict[str, Any]:
+def render_job(job_id: str, scale: float = 1.0, location: str = "local") -> dict[str, Any]:
+    """Queue a render. `location=colab` renders full size on Colab's TPU v6e-1."""
+    if location not in RENDER_LOCATIONS:
+        raise HTTPException(400, f"location phải là một trong {RENDER_LOCATIONS}")
     job = _job(job_id)
     state = job.load()
-    state["options"] = merge_options(state.get("options", {}), {"render_scale": scale})
+    state["options"] = merge_options(state.get("options", {}),
+                                     {"render_scale": scale, "render_location": location})
     job.save(state)
     position = _submit(QueuedRun(job_id, stages=["render"], use_cache=False))
     return {"job_id": job_id, "queue_position": position}

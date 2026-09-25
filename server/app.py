@@ -163,9 +163,12 @@ def autoedit_config() -> dict[str, str | bool]:
     except Exception:  # noqa: BLE001 — surface as a boolean, not a 500
         gateway_ok = False
 
+    from lib.cloud_render.colab import load_config as colab_config
+
     return {
         "director_model": default_model(),
         "gateway_configured": gateway_ok,
+        "colab_render": bool(colab_config().get("enabled")),
     }
 
 

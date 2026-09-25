@@ -1,5 +1,7 @@
 # Cloud render (Vast.ai) — human entry point
 
+> Render không tốn tiền thuê máy: dùng Colab TPU v6e-1 tự động — [`colab-render.md`](colab-render.md).
+
 This is the human-facing setup/operate/troubleshoot guide for renting a short-lived Vast.ai CPU
 box to render a talking-head autoedit job instead of rendering it on this machine. If you are an
 agent instructing the LLM, read `skills/core/cloud-render.md` (decision policy, announce template,
