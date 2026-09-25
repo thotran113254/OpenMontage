@@ -48,6 +48,40 @@ def _configured_max_concurrency() -> int:
 # `_configured_max_concurrency()` so a later `load_env()` can raise the cap.
 MAX_CONCURRENCY = _DEFAULT_MAX_CONCURRENCY
 
+# Remotion's OffthreadVideo frame cache defaults to about half the free RAM. On
+# this shared box (swap already full from other projects) a 1080x1920 render
+# ate 10.8 GB in 900 frames and died with "Target closed"; capped at 1 GB the
+# same render used 9.2 GB and finished.
+OFFTHREAD_CACHE_BYTES = 1024 ** 3
+# Measured per Chrome worker at 1080x1920 on top of that cache: (9227 MB -
+# 1 GB) / 5 workers ≈ 1.6 GB. Rounded up, plus headroom for everything else.
+_WORKER_MEMORY_MB = 1700
+_MEMORY_RESERVE_MB = 1500
+
+
+def _available_memory_mb() -> int | None:
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) // 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def _memory_worker_cap() -> int | None:
+    """Workers the free RAM can hold right now; None where it cannot be read.
+
+    CPU budget alone let a render start 5 workers with ~7 GB free; memory ran
+    out partway and every worker timed out. Fewer workers render slower but
+    finish.
+    """
+    available = _available_memory_mb()
+    if available is None:
+        return None
+    spare = available - _MEMORY_RESERVE_MB - OFFTHREAD_CACHE_BYTES // 1024 ** 2
+    return max(1, spare // _WORKER_MEMORY_MB)
+
 
 class RenderError(RuntimeError):
     pass
@@ -69,6 +103,9 @@ def _concurrency(options: dict[str, Any] | None = None,
     """
     if max_concurrency is None:
         max_concurrency, cores = _configured_max_concurrency(), available_cores()
+        memory_cap = _memory_worker_cap()
+        if memory_cap is not None:
+            max_concurrency = min(max_concurrency, memory_cap)
     else:   # a rented box: its own cores, minus headroom for the compositor
         cores = (os.cpu_count() or 4) - 2
     default = max(1, min(max_concurrency, cores))
@@ -94,12 +131,17 @@ def _link_or_copy(source: Path, target: Path) -> None:
         shutil.copyfile(source, target)
 
 
-def stage_assets(job, props: dict[str, Any]) -> Path:
-    """Build the per-job public dir: the cut footage plus the audio it uses."""
+def stage_assets(job, props: dict[str, Any], video: Path | None = None) -> Path:
+    """Build the per-job public dir: the cut footage plus the audio it uses.
+
+    `video` defaults to the draft `src.mp4` (previews, stills, draft renders);
+    full-size renders pass the delivery-quality cut from `deliverable_video`,
+    staged under the same name so props need no change.
+    """
     staging = job.render_public_dir
     staging.mkdir(parents=True, exist_ok=True)
 
-    _link_or_copy(job.src_path, staging / Path(props["videoSrc"]).name)
+    _link_or_copy(video or job.src_path, staging / Path(props["videoSrc"]).name)
 
     wanted = {event["name"] for event in props.get("events", []) if event.get("type") == "sfx"}
     if props.get("bgm", {}).get("name"):
@@ -185,6 +227,7 @@ def build_remotion_command(*, entry: str, composition_id: str, out_path: str | P
         f"--props={props_path}", f"--public-dir={public_dir}",
         f"--concurrency={workers}", f"--crf={crf}",
         f"--jpeg-quality={jpeg_quality}", "--log=info",
+        f"--offthreadvideo-cache-size-in-bytes={OFFTHREAD_CACHE_BYTES}",
     ]
     if scale < 1.0:
         command.append(f"--scale={scale}")
@@ -205,6 +248,17 @@ def _render_on_colab(job, version: int, options: dict[str, Any]) -> dict[str, An
         return None
 
 
+def deliverable_video(job, version: int, options: dict[str, Any]) -> Path:
+    """The delivery-quality cut for a full-size render (see `deliverable_src`)."""
+    from lib.talking_head_edit import deliverable_src
+    from lib.talking_head_edit.resolve_media import ResolveError
+
+    try:
+        return deliverable_src.ensure(job, version, options)
+    except ResolveError as exc:
+        raise RenderError(str(exc)) from exc
+
+
 def run(job, options: dict[str, Any]) -> dict[str, Any]:
     state = job.load()
     version = int(state["current_version"])
@@ -221,9 +275,10 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
         )
 
     props = json.loads(props_path.read_text(encoding="utf-8"))
-    staging = stage_assets(job, props)
-
     scale = float(options.get("render_scale", 1.0))
+    staging = stage_assets(
+        job, props, deliverable_video(job, version, options) if scale >= 1.0 else None)
+
     # Remotion's default leaves the deliverable around 4.5 Mbps at 1080x1920,
     # which visibly softens hair and skin texture on this kind of footage.
     crf = int(options.get("render_crf", 17))

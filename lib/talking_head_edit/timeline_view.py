@@ -214,7 +214,8 @@ def output_time_mapper(job, version: int) -> Any:
              for s in raw_spans]
     timeline = float(report.get("timeline_seconds") or 0.0)
     options = job.load().get("options", {})
-    mapper = TimeMapper(words, spans, timeline, float(options.get("tempo", 1.06)))
+    mapper = TimeMapper(words, spans, timeline, float(options.get("tempo", 1.06)),
+                        fps=int(options.get("fps", 30)))
     # The teaser was prepended AFTER mapping, so every event shifted by its
     # length — the labels have to shift with them.
     offset = float(report.get("cold_open_offset") or 0.0)

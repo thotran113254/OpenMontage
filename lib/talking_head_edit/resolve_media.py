@@ -283,8 +283,14 @@ def _blemish_reduce_chain(blemish: float) -> str:
         ";[fsb][fslow1]blend=all_mode=grainextract[fshigh]"
         f";[fslow2]gblur=sigma={blotch_sigma}[fslowsmooth]"
         ";[fslowsmooth][fshigh]blend=all_mode=grainmerge[fsout]"
-        ";[fsmaskin]format=yuv444p,"
-        f"geq=lum='if(gt(cr(X\\,Y)-cb(X\\,Y)\\,{_SKIN_MASK_CR_CB_THRESHOLD})\\,255\\,0)':cb=128:cr=128,"
+        # The mask is cr - cb > threshold. `geq` evaluates that as an expression
+        # per pixel: this whole chain cost ~178 CPU-seconds for 3s of
+        # 1440x2560@60 with it, ~90 without. Moving cr and cb into plane 0 of
+        # two copies lets `lut2` read the answer from a precomputed 256x256
+        # table; the output is bit-identical (same framemd5).
+        ";[fsmaskin]format=yuv444p,split=2[fsm1][fsm2]"
+        ";[fsm1]shuffleplanes=map0=2[fscr];[fsm2]shuffleplanes=map0=1[fscb]"
+        f";[fscr][fscb]lut2=c0='if(gt(x-y\\,{_SKIN_MASK_CR_CB_THRESHOLD})\\,255\\,0)':c1=128:c2=128,"
         f"gblur=sigma={_SKIN_MASK_FEATHER_SIGMA}[fsmask]"
         ";[fsbase][fsout][fsmask]maskedmerge"
     )

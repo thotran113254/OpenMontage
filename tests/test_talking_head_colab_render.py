@@ -94,7 +94,8 @@ def wired(tmp_path, monkeypatch):
     monkeypatch.setattr(colab.kit, "build_job_kit", lambda job, version: manifest)
     monkeypatch.setattr(colab.kit, "cleanup_kit", lambda m: None)
     monkeypatch.setattr(colab.transfer, "push_kit", lambda *a, **k: ("k", 0, False))
-    monkeypatch.setattr(colab, "stage_assets", lambda job, props: None)
+    monkeypatch.setattr(colab, "stage_assets", lambda job, props, video=None: None)
+    monkeypatch.setattr(colab, "deliverable_video", lambda job, version, options: None)
     monkeypatch.setattr(colab, "STATE_PATH", tmp_path / "state.json")
     monkeypatch.setattr(colab, "LOCK_PATH", tmp_path / "lock")
     monkeypatch.setattr(colab, "POLL_SECONDS", 0)
@@ -213,3 +214,47 @@ def test_the_render_stage_sends_full_size_renders_to_colab(monkeypatch, tmp_path
     monkeypatch.setattr(colab, "load_config", lambda: {"fallback_to_local": False})
     with pytest.raises(render.RenderError, match="TPU không sẵn"):
         render.run(job, {"render_location": "colab"})
+
+
+class _SlowMenuBrowser:
+    """A ColabBrowser whose connection menu shows its items only after a delay."""
+
+    def __init__(self, item_appears_after: int | None):
+        from lib.cloud_render.colab_browser import ColabBrowser
+
+        self.browser = ColabBrowser(session="test", cdp_port=0)
+        self.polls = 0
+        self.menu_opens = 0
+
+        def fake_run(*args, timeout=None):
+            if args[:4] == ("find", "role", "button", "click"):
+                self.menu_opens += 1
+                return True, "✓ Done"
+            if args[:3] == ("find", "role", "menuitem"):
+                self.polls += 1
+                if item_appears_after is not None and self.polls >= item_appears_after:
+                    return True, "✓ Done"
+                return False, "✗ No element found"
+            return True, ""
+
+        self.browser._run = fake_run
+
+
+def test_a_slow_connection_menu_is_waited_for(monkeypatch):
+    """A loaded VPS opened the menu after the old fixed 2s wait and the click missed."""
+    import lib.cloud_render.colab_browser as colab_browser
+
+    monkeypatch.setattr(colab_browser.time, "sleep", lambda s: None)
+    fake = _SlowMenuBrowser(item_appears_after=3)
+    fake.browser._connection_menu("Change runtime type")
+    assert fake.polls == 3 and fake.menu_opens == 1
+
+
+def test_a_menu_that_never_shows_the_item_fails_after_reopening(monkeypatch):
+    import lib.cloud_render.colab_browser as colab_browser
+
+    monkeypatch.setattr(colab_browser.time, "sleep", lambda s: None)
+    fake = _SlowMenuBrowser(item_appears_after=None)
+    with pytest.raises(colab_browser.ColabBrowserError, match="3 lần mở menu"):
+        fake.browser._connection_menu("Change runtime type")
+    assert fake.menu_opens == 3

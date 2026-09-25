@@ -38,8 +38,8 @@ Toàn bộ độ chính xác của pipeline dựa trên **một đồng hồ duy
 | `direct` | AI dựng khung + caption (nhiều call song song) | ~24s |
 | `audit` | LLM kiểm từng cut + kiểm tài nguyên có thật + đo chất lượng | ~7s |
 | `calibrate` | **TẮT mặc định** — trượt phép thử mù, xem phần "Gemini có thực sự nghe/nhìn được để chấm chất lượng không" | ~35s khi bật |
-| `resolve` | ffmpeg cắt/grade/tempo/cold-open + ánh xạ mọi mốc thời gian | ~4 phút |
-| `render` | Remotion → final.mp4 | ~370s @1080x1920 |
+| `resolve` | ffmpeg cắt/grade/tempo/cold-open + ánh xạ mọi mốc thời gian | ~4 phút (có làm mịn da/giảm mụn: nhanh ~5 lần sau khi chia lát, xem "Ba tối ưu tốc độ") |
+| `render` | bản full: encode lại `cut_plan` ở chất lượng giao hàng (`src_master.mp4`, có cache), rồi Remotion → final.mp4 | ~370s @1080x1920; Colab ~14 phút cho 240s |
 | `verify` | đo lại file: luma, LUFS, lệch A/V, độ dài, nhạc nền có vào mix không, **video có bị giật không**, b-roll có thật xuất hiện không, ảnh soi mối nối đáng nghi | ~25s |
 
 Ngoài chuỗi trên còn stage `revise` — vá bản dựng theo yêu cầu bằng lời (xem dưới).
@@ -161,7 +161,7 @@ Trong UI — luồng project:
 
 | Nút (trang job) | Ý nghĩa |
 |---|---|
-| **Xuất MP4 trên máy này** / Nháp 540p | Chạy ngay trên máy, FIFO queue local, $0 (+ confirm) |
+| **Xuất MP4 trên máy này** / Nháp 540p | Chạy ngay trên máy, FIFO queue local, $0 (+ confirm). Bản full (kể cả Colab và nút tạo outro/ảnh bìa) tự chạy `verify` sau render; nháp 540p thì không, vì `verify` đo `final.mp4` chứ không đo `preview_50.mp4` |
 | **Xếp lịch cloud** | Đưa job vào batch queue (free, không thuê máy) |
 | **Cloud ngay…** | dry_run + modal xác nhận chi phí → thuê 1 máy cho job này |
 
@@ -375,7 +375,7 @@ cut cộng dồn, và phải báo ý nào chưa làm — xem
 | prompt / topic / card_plan / model / cut_level | `direct` |
 | asr_provider / asr_model / whisper_model / keyterms / ngôn ngữ / file nguồn | `transcribe` |
 | tempo / kích thước / cold_open / bgm | `resolve` |
-| chỉ scale render | `render` |
+| chỉ scale render / `intermediate_preset` / `intermediate_crf` | `render` |
 
 Transcript cache dùng chung theo sha256 file nguồn (`output/transcript_cache/`) — nộp lại cùng
 footage với prompt khác thì không chạy lại ASR. Tên file cache là
@@ -411,14 +411,90 @@ phát hiện: sai span là sai một con số, đọc ra được; sai encode th
 spans (nguồn, giây bắt đầu, giây kết thúc)
    │
    ├─ [song song, ≤4] mỗi span: grade(src) + trim + setpts tempo   (video)
-   │                            + afade 20ms + atempo              (audio thô)
-   │                            → seg_000.mp4     ← LẦN ENCODE VIDEO DUY NHẤT
+   │                            + afade 20ms + atempo              (audio PCM)
+   │                            → seg_000.mov     ← LẦN ENCODE VIDEO DUY NHẤT
    │
-   ├─ concat demuxer -c copy → joined.mp4
+   ├─ concat demuxer -c copy → joined.mov (giữ lại làm _timeline_premaster.mov)
    │
-   └─ ffmpeg -i joined -c:v copy -af "<cleanup,compressor,limiter,loudnorm,aresample>"
-              → src.mp4                            ← audio encode lại, VIDEO COPY
+   ├─ ffmpeg -i joined -c:v copy -af "<cleanup,compressor,limiter,loudnorm,aresample>"
+   │          → src.mp4                            ← audio thành AAC, VIDEO COPY
+   │
+   └─ nếu có cold-open: teaser + premaster (PCM, -c copy) → master lại → src.mp4
 ```
+
+**Audio giữ PCM tới bước master.** Mỗi mảnh AAC mang 1024 mẫu priming ở timestamp âm và làm tròn
+độ dài lên bội số 1024 mẫu. Concat demuxer bù bằng cách dời cả file, nên trước đây hình của mọi
+`src.mp4` bắt đầu ở 0.021s (trễ hơn tiếng 21ms), và mối nối cold-open có một lỗ 54ms trong hình,
+phát ra thành một cú khựng. PCM chính xác từng mẫu nên các mảnh khít nhau. Teaser được làm tròn về
+số nguyên khung và ghép vào bản PCM trước master, rồi master chạy một lần cho cả teaser và chương
+trình, nên audio chỉ thành AAC đúng một lần. Kiểm chứng: test
+`test_the_cut_and_its_cold_open_keep_video_and_audio_together`. Chạy thật resolve → render → verify
+trên một job có cold-open: hình và tiếng đều bắt đầu ở 0, không có bước khung nào dài hơn 1 khung,
+và `verify` đạt, không có issue nào. `loudnorm` xử lý theo khối 100ms nên tiếng của `src.mp4` dài
+hơn hình tối đa 0.1s ở cuối. Đây là hành vi có sẵn và vô hại.
+
+### Bản nháp cho xem trước, bản giao hàng cho render (`deliverable_src.py`)
+
+`resolve` encode `src.mp4` ở chất lượng nháp (veryfast, crf 24), vì nó chạy sau mỗi lần xem trước
+hoặc sửa, và Player trên trình duyệt cần file nhẹ. Nó lưu toàn bộ quyết định thành `cut_plan` trong
+`resolve_report_v<n>.json`: span kèm đường dẫn, chuỗi grade đúng như đã dựng (không đo lại), tempo,
+fps, kích thước, audio preset, probe nguồn và cửa sổ teaser. Render bản full (trên máy, Colab hay
+Vast.ai) chạy lại đúng kế hoạch đó ở `intermediate_preset`/`intermediate_crf` (medium / 12), ra
+`src_master.mp4`, rồi stage file này dưới tên `videoSrc`. File được cache theo kế hoạch, thông số
+encode, công thức (`resolve_cut/media/spans.py`) và số khung của bản nháp. **Số khung phải khớp bản
+nháp**, lệch là dừng, vì caption/card trong props đều tính theo bản nháp. Nháp 540p, ảnh soi và clip
+xem thử vẫn đọc bản nháp. Report cũ không có `cut_plan` thì phải resolve lại trước khi render.
+
+Đo trên job thật (93s, 1012×1800): bản nháp 2.3 Mbps, bản giao hàng 17.8 Mbps, cùng 2652 khung.
+Độ chi tiết vùng mặt tăng từ 2.157 lên 2.722 (+26%). Render trên Colab mất 6.2 phút runtime
+(≈ 0.42 CU), và verify đạt, không có issue nào.
+
+**Mốc thời gian là tổng số nguyên khung.** Mỗi span dài đúng `round(dài / tempo × fps)` khung, cả
+hình lẫn tiếng. Span được đọc dư 2 khung, rồi `-frames:v` và `atrim` cắt về đúng độ dài: sau
+fade-out 20ms tiếng đã im, nên phần dư là khoảng lặng. Không dùng `apad`, vì nó làm ffmpeg 8 treo
+khi đi cùng luồng hình. `TimeMapper(fps=...)` cộng dồn đúng những con số đó, nên caption không trôi
+thêm nửa khung sau mỗi mối cắt.
+
+### Cold-open không cắt nửa vời
+
+- `normalize_cold_open` coi một điểm là biên câu khi có dấu câu, hoặc khi người nói dừng ≥ 0.35s
+  (ASR hay thiếu dấu khi nói liền). Không tìm được biên trong 8 từ sau / 6 từ trước lựa chọn của
+  director thì **bỏ hook**. Trước đây nó dừng ở từ thứ 8 dù đang giữa câu.
+- `cold_open_window`: đầu teaser lùi vào nửa khoảng lặng trước từ đầu, tối đa 0.12s, vì mốc bắt đầu
+  từ của ASR thường trễ và làm mất phụ âm đầu. Đuôi giữ một hơi thở 0.06–0.22s nhưng **không bao
+  giờ** chạm vào từ kế tiếp; bản cũ ép tối thiểu 60ms nên nuốt mất âm đầu của từ sau. Cửa sổ bắt
+  đầu đúng một khung và dài nguyên số khung, làm tròn lên trừ khi chạm từ sau. Teaser có fade vào
+  và ra, mỗi bên 20ms.
+
+### Ba tối ưu tốc độ không đổi hình (`resolve_cut.py`)
+
+- **Chia lát song song.** Các filter trong chuỗi grade chạy nối tiếp nhau, nên một ffmpeg không dùng
+  hết ngân sách CPU: trung bình chỉ 3.4/6 core. Khi số span ít hơn số worker, `plan_slices`
+  chia span dài thành các lát ≥ `MIN_SLICE_SECONDS` (8s) để encode song song, trong giới hạn
+  `MAX_SPAN_WORKERS` và `AUTOEDIT_CPU_BUDGET`. Lát cắt đúng trên lưới khung đầu ra và bị chặn bằng
+  `-frames:v`. Tiếng của cả span encode một lần (`extract_span_audio`), nên không sinh mối nối
+  âm thanh mới. Lát ghép lại bằng `-c copy`, video vẫn chỉ encode một lần. Span không rõ fps nguồn
+  thì không chia.
+- **Lấy khung theo lưới timeline trước khi grade.** `timeline_grid_filter` đặt `fps=30/tempo` ở đầu
+  chuỗi, nên nguồn 60fps không còn phải grade gấp đôi số khung rồi để `-r` bỏ đi một nửa. Nó còn
+  chữa luôn lỗi đệm đuôi: trước đây một span 2.000s ở 60fps ra 62 khung (video 2.067s trên
+  tiếng 2.000s).
+- **Mặt nạ da bằng `lut2` thay cho `geq`.** Cho ra kết quả giống hệt từng bit (cùng framemd5), và
+  giảm CPU của chuỗi lọc từ ~178 xuống ~90 CPU-giây cho 3s footage 1440×2560@60.
+
+Số đo resolve (2026-09-25, 32s footage 1440×2560@60fps, tempo 1.08, grade của job thật có
+`skin_smooth` 0.25 + `blemish_reduce` 0.3 + `sharpen` 0.4): code cũ mất **634s** thực và 2178
+CPU-giây, code mới mất **128s** và 729 CPU-giây (4 lát). Độ chi tiết vùng mặt bằng nhau (Laplacian
+2.315 so với 2.332). Hai bản chọn khung nguồn lệch nhau tối đa một khung (1/60s) ở một số vị trí,
+cùng mức chênh với hai khung nguồn liền kề (SSIM ~0.97). Với footage không grade (`grade: {}`)
+thì không có lợi ích: giải mã và x264 vốn đã đa luồng, CPU-giây hai bản ngang nhau (~180), còn
+thời gian thực dao động 30–56s theo tải máy ở cả hai bản.
+
+Kiểm chứng: `tests/test_talking_head_resolve_speed.py` so khung ở chế độ lossless giữa bản chia
+lát và bản không chia (nguồn 60 và 29.97fps, tempo 1.0 và 1.08). Khi quét 48 tổ hợp (nguồn
+25/29.97/50/60fps, tempo 1.0/1.06/1.15, 2–6 lát), 45 tổ hợp khớp từng khung. 3 tổ hợp còn lại
+là hoà thật sự: nguồn 50fps với điểm cắt rơi đúng giữa hai khung nguồn, và hai bên chọn hai
+khung lân cận (lệch 20ms), cả hai đều gần mốc lưới như nhau.
 
 **Vì sao bước cuối phải `-c:v copy`, và vì sao nó được assert chứ không được tin:** cách làm hiển
 nhiên là encode span → concat → encode lại để chạy loudnorm. Như thế video encode **2 lần** và xoá
@@ -616,6 +692,8 @@ chứa đúng asset nó dùng.
 | Triệu chứng | Nguyên nhân thật | Cách xử lý |
 |---|---|---|
 | Tiếng lệch hình sau khi cắt | `aselect` cho qua toàn bộ audio frame trên build này | `atrim`+`concat`, có assert |
+| Khựng ~54ms ở mối nối cold-open; hình `src.mp4` bắt đầu ở 0.021s | Mảnh trung gian mang AAC: priming 1024 mẫu làm concat demuxer dời cả file | Audio giữ PCM (.mov) tới bước master; teaser ghép trước master |
+| Render 1080×1920 trên VPS timeout ("Target closed") giữa chừng | Cache khung của `OffthreadVideo` mặc định dùng ~nửa RAM trống; swap của VPS đã đầy | `--offthreadvideo-cache-size-in-bytes` 1 GB và hạ số worker theo RAM trống (~1.7 GB/worker). Render bản full nên chạy trên Colab |
 | Nhạc nền im ru | Remotion `<Audio loop>` + volume callback render ra im lặng | `BgmDucked` tile nhiều `<Audio>` |
 | PiP có viền trắng | `@remotion/media <Video>` bỏ qua `objectFit:cover` | dùng `OffthreadVideo` |
 | Render chết "No frame found at position" | compositor trượt frame khi concurrency cao | tự thử lại ở nửa concurrency |

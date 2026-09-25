@@ -185,6 +185,13 @@ class TestAutopilotLimits:
 
 
 class TestRenderConcurrencyOption:
+    @pytest.fixture(autouse=True)
+    def _plenty_of_memory(self, monkeypatch):
+        """Option parsing only; free RAM would otherwise move the numbers."""
+        from lib.talking_head_edit.stages import render
+
+        monkeypatch.setattr(render, "_memory_worker_cap", lambda: None)
+
     def test_half_halves_the_default(self):
         from lib.talking_head_edit.stages.render import _concurrency
 

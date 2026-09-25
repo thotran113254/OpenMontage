@@ -117,12 +117,26 @@ class ColabBrowser:
                 return current[0].split("#")[0]
         raise ColabBrowserError("Colab: không mở được notebook render")
 
-    def _connection_menu(self, item: str) -> None:
-        self._run("press", "Escape")
-        self.click("button", "Additional connection options", "mở menu kết nối")
-        time.sleep(2)
-        self.click("menuitem", item, f"chọn '{item}'")
-        time.sleep(3)
+    def _connection_menu(self, item: str, attempts: int = 3, wait_s: int = 8) -> None:
+        """Open the connection menu and pick `item`, waiting for it to appear.
+
+        A fixed 2s wait was enough on an idle machine; with the VPS under load
+        the menu opened later and the click missed ("No element found" for
+        'Change runtime type', which was there a moment after). Poll for the
+        item, and reopen the menu if it never shows.
+        """
+        output = ""
+        for _ in range(attempts):
+            self._run("press", "Escape")
+            self.click("button", "Additional connection options", "mở menu kết nối")
+            for _ in range(wait_s):
+                time.sleep(1)
+                ok, output = self._run("find", "role", "menuitem", "click", "--name", item)
+                if ok:
+                    time.sleep(3)
+                    return
+        raise ColabBrowserError(
+            f"Colab: chọn '{item}' thất bại sau {attempts} lần mở menu — {output.strip()[-300:]}")
 
     def set_runtime(self, label: str) -> None:
         """Select a runtime type ("v6e-1 TPU"). Switching away from a live runtime

@@ -210,7 +210,7 @@ def test_cold_open_is_joined_without_re_encoding_the_timeline(tmp_path):
         _SEGMENT_FORMAT, prepend_teaser, probe_duration, video_stream_bitrate,
     )
 
-    base = tmp_path / "src.mp4"
+    base = tmp_path / "timeline.mov"
     subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=s=320x240:r=30:d=4",
                     "-f", "lavfi", "-i", "sine=f=440:d=4", "-c:v", "libx264", "-crf", "30",
                     *_SEGMENT_FORMAT, "-r", "30", str(base), "-loglevel", "error"], check=True)

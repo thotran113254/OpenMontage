@@ -216,14 +216,13 @@ class Job:
     def preview_src_path(self) -> Path:
         """A lightweight re-encode of `src_path`, for the browser Player only.
 
-        `src_path` is intermediate_crf (12 by default — near-lossless, tens of
-        Mbps) because that quality is what the renderer reads frames from.
-        Streaming that same file to a `<video>` tag over HTTP is a different
-        job: Chrome's decoder falls behind a 50-70 Mbps 1080x1920 stream,
-        `OffthreadVideo`'s `pauseWhenBuffering` default keeps stalling to
-        rebuffer, and audio — tied to the same paused state — drops out with
-        it. The real render never reads this file (`stage_assets` stages
-        `src_path`, not this), so render quality is unaffected.
+        Kept for jobs that still point at it. `src_path` itself is now the
+        draft-quality cut resolve writes, already light enough for the Player.
+        The delivery-quality cut a full render reads is `src_master.mp4`
+        (`deliverable_src`): at intermediate_crf 12 it runs tens of Mbps, and
+        Chrome's decoder falls behind a 50-70 Mbps 1080x1920 stream, stalling
+        `OffthreadVideo` and dropping audio — which is why the Player never
+        gets that file.
         """
         return self.dir / "preview_src.mp4"
 

@@ -31,7 +31,12 @@ from lib.cloud_render import kit, transfer
 from lib.cloud_render.colab_browser import ColabBrowser, ColabBrowserError
 from lib.cloud_render.remote import CloudRenderError, finalize_output
 from lib.talking_head_edit.job_store import REPO_ROOT
-from lib.talking_head_edit.stages.render import build_remotion_command, stage_assets
+from lib.talking_head_edit.stages.render import (
+    RenderError,
+    build_remotion_command,
+    deliverable_video,
+    stage_assets,
+)
 
 CONFIG_PATH = REPO_ROOT / "config" / "colab-render.json"
 # Machine state, not configuration: the notebook created on first use.
@@ -184,7 +189,10 @@ def render_job(job: Any, version: int, options: dict[str, Any], *,
 
     with single_flight():
         props = json.loads(job.props_path(version).read_text(encoding="utf-8"))
-        stage_assets(job, props)
+        try:
+            stage_assets(job, props, deliverable_video(job, version, options))
+        except RenderError as exc:
+            raise ColabRenderError(str(exc)) from exc
         composer = kit.build_composer_kit()
         job_kit = kit.build_job_kit(job, version)
         run_id = f"{job.job_id}-{int(time.time())}"

@@ -13,6 +13,7 @@ that reach the renderer, and the timeline offset maths are real.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -63,10 +64,18 @@ def stubs(monkeypatch):
         calls["teaser_window"] = (round(start, 3), round(end, 3))
         return TEASER_TOTAL
 
+    def fake_master(timeline, out_path, audio_preset="shotgun"):
+        calls["master"] = (Path(timeline).name, audio_preset)
+        return TEASER_TOTAL
+
     monkeypatch.setattr(resolve_stage, "cut_and_grade_multi", fake_cut_and_grade_multi)
     monkeypatch.setattr(resolve_stage, "prepend_teaser", fake_prepend)
-    # The bgm branch probes the music file for its real length.
-    monkeypatch.setattr(resolve_stage, "probe_duration", lambda path: 90.0)
+    monkeypatch.setattr(resolve_stage, "apply_master_audio", fake_master)
+    # The kept pre-master timeline is as long as the cut; the bgm branch probes
+    # the music file for its real length.
+    monkeypatch.setattr(
+        resolve_stage, "probe_duration",
+        lambda path: CUT_DURATION if Path(path).name == resolve_stage.PREMASTER_NAME else 90.0)
     # auto_sharpen would decode frames; assert on what it was given instead.
     # Shape must match sharpen_calibrate.calibrate — resolve logs every field.
     monkeypatch.setattr(
@@ -103,6 +112,9 @@ class TestColdOpenSwitch:
         resolve_stage.run(job, {})
         assert stubs["teaser"] == 1
         assert props_of(job)["durationSeconds"] > CUT_DURATION
+        # teaser and programme are mastered together, from the PCM timeline
+        assert stubs["master"][0] == resolve_stage.PREMASTER_NAME
+        assert not (job.dir / resolve_stage.PREMASTER_NAME).exists()
 
     def test_explicit_null_does_not_disable_it(self, job, stubs):
         """A form posting `{"cold_open": null}` must not silently drop the teaser."""
@@ -114,6 +126,7 @@ class TestColdOpenSwitch:
         write_spec(job)
         resolve_stage.run(job, {"cold_open": False})
         assert stubs["teaser"] == 0
+        assert "master" not in stubs   # the cut's own master pass stands
 
     def test_events_shift_past_the_teaser(self, job, stubs):
         write_spec(job)
