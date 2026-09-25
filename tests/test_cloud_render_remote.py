@@ -534,6 +534,10 @@ def render_now_env(monkeypatch, tmp_path):
 
     monkeypatch.setattr(kit, "build_composer_kit", fake_build_composer_kit)
     monkeypatch.setattr(kit, "build_job_kit", fake_build_job_kit)
+    # staging the delivery-quality cut needs a real resolve; the kit is faked anyway
+    from lib.talking_head_edit.stages import render as render_stage
+    monkeypatch.setattr(render_stage, "deliverable_video", lambda job, version, options: None)
+    monkeypatch.setattr(render_stage, "stage_assets", lambda job, props, video=None: None)
     monkeypatch.setattr(kit, "cleanup_kit", fake_cleanup_kit)
 
     monkeypatch.setattr(vast_client, "search", lambda *a, **k: [FakeOffer()])

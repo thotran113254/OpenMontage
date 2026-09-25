@@ -474,6 +474,14 @@ def render_now(job: Any, version: int, *, config: dict[str, Any],
     expected_duration = float(props.get("durationSeconds") or 0.0)
 
     render_seconds_per_video_second = float(config.get("render_seconds_per_video_second", 1.9))
+    # The kit ships the staging dir: stage the delivery-quality cut, not the
+    # draft resolve writes for previews.
+    from lib.talking_head_edit.stages.render import RenderError, deliverable_video, stage_assets
+    try:
+        stage_assets(job, props,
+                     deliverable_video(job, version, job.load().get("options") or {}))
+    except RenderError as exc:
+        raise CloudRenderError(str(exc)) from exc
     composer_manifest = kit.build_composer_kit()
     try:
         job_manifest = kit.build_job_kit(

@@ -14,8 +14,11 @@ measures the actual text (see KeywordView) and clamps the size there.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
+
+from lib.talking_head_edit.resolve_spans import timeline_frames
 
 CAPTION_MIN_SECONDS = 0.5
 # Stacked SFX (riser+whoosh every card, pop on every bullet) is the most common
@@ -50,7 +53,7 @@ class TimeMapper:
 
     def __init__(self, words: list[dict[str, Any]], spans: list[Any],
                  new_duration: float, tempo: float,
-                 default_src: str = "s0"):
+                 default_src: str = "s0", fps: int | None = None):
         self.words = words
         self.n = len(words)
         self.starts = [float(w["start"]) for w in words]
@@ -58,8 +61,9 @@ class TimeMapper:
         self.srcs = [str(w.get("src") or default_src) for w in words]
         self.tempo = tempo or 1.0
         self.new_duration = new_duration
-        # (src, start, end, output offset). Offsets accumulate the *tempo-scaled*
-        # span lengths, because that is what the segments actually are on disk.
+        # (src, start, end, output offset). Offsets accumulate the span lengths
+        # the segments actually have on disk: tempo-scaled, and with `fps`
+        # rounded to whole frames exactly as `resolve_cut` encodes them.
         self.spans: list[tuple[str, float, float, float]] = []
         offset = 0.0
         for span in spans:
@@ -67,7 +71,9 @@ class TimeMapper:
             start = float(getattr(span, "start", span[0] if isinstance(span, tuple) else 0.0))
             end = float(getattr(span, "end", span[1] if isinstance(span, tuple) else 0.0))
             self.spans.append((src_id, start, end, offset))
-            offset += max(0.0, end - start) / self.tempo
+            length = max(0.0, end - start)
+            offset += (timeline_frames(length, fps, self.tempo) / fps if fps and length > 0
+                       else length / self.tempo)
 
     @classmethod
     def from_removes(cls, words: list[dict[str, Any]],
@@ -127,6 +133,45 @@ class TimeMapper:
     def seams(self) -> list[float]:
         """Output-timeline seconds where one span hands over to the next."""
         return [round(offset, 3) for _, _, _, offset in self.spans[1:]]
+
+
+HOOK_LEAD_MAX = 0.12   # breath kept before the hook's first word
+HOOK_TAIL_MIN = 0.06   # breath kept after its last word, room allowing
+HOOK_TAIL_MAX = 0.22
+HOOK_TAIL_GUARD = 0.02  # never run this close to the next word
+
+
+def cold_open_window(mapper: TimeMapper, w0: int, w1: int, timeline: float,
+                     fps: int) -> tuple[float, float]:
+    """(start, end) on the cut timeline for the teaser of words w0..w1.
+
+    Built so the teaser can never sound chopped:
+
+    * it starts in the silence before w0 (half of it, at most HOOK_LEAD_MAX),
+      because ASR word starts land late and the first consonant went missing;
+    * it keeps a breath after w1 but never reaches the next word — the old
+      60ms minimum tail swallowed the next word's onset whenever the speaker
+      ran on;
+    * it is whole frames long starting on a frame, so the teaser's video and
+      audio begin together and the frame snap rounds UP unless that would
+      touch the next word.
+    """
+    first = mapper.at(w0)
+    before = mapper.at(w0 - 1, use_end=True) if w0 > 0 else 0.0
+    start = max(0.0, first - min(HOOK_LEAD_MAX, max(0.0, first - before) / 2))
+
+    last_end = mapper.at(w1, use_end=True)
+    next_start = mapper.at(w1 + 1) if w1 + 1 < mapper.n else timeline
+    room = max(0.0, next_start - last_end - HOOK_TAIL_GUARD)
+    tail = min(HOOK_TAIL_MAX, room, max(HOOK_TAIL_MIN, room * 0.65))
+    end = min(timeline, last_end + tail)
+
+    start = math.floor(start * fps + 1e-6) / fps
+    limit = min(timeline, max(end, next_start))
+    frames = math.ceil((end - start) * fps - 1e-6)
+    if start + frames / fps > limit + 1e-9:
+        frames = max(1, math.floor((limit - start) * fps + 1e-6))
+    return round(start, 6), round(start + frames / fps, 6)
 
 
 def resolve_events(spec: dict[str, Any], mapper: TimeMapper) -> tuple[list[dict[str, Any]], list[str]]:

@@ -187,6 +187,26 @@ class TestBgmNormalisation:
         assert cold is None
         assert any("cắt cụt" in n for n in notes)
 
+    def test_normalize_cold_open_ends_at_a_pause_when_asr_gave_no_punctuation(self):
+        from lib.talking_head_edit.stages.audit import normalize_cold_open
+
+        # run-on speech: no full stop anywhere, a real breath after "thật"
+        timings = [(0.0, 0.3), (0.35, 0.6), (0.65, 0.9), (0.95, 1.2), (1.25, 1.5),
+                   (2.1, 2.4), (2.45, 2.7)]
+        texts = ["bạn", "sẽ", "mất", "tiền", "thật", "nếu", "không"]
+        words = [{"word": t, "start": a, "end": b} for t, (a, b) in zip(texts, timings)]
+        cold, _ = normalize_cold_open({"w0": 0, "w1": 2, "caption": "x"}, words)
+        assert cold is not None and cold["w1"] == 4
+
+    def test_normalize_cold_open_drops_the_hook_rather_than_stop_mid_sentence(self):
+        from lib.talking_head_edit.stages.audit import normalize_cold_open
+
+        # 20 words spoken without a pause or a full stop
+        words = [{"word": f"w{i}", "start": i * 0.3, "end": i * 0.3 + 0.28} for i in range(20)]
+        cold, notes = normalize_cold_open({"w0": 0, "w1": 3, "caption": "x"}, words)
+        assert cold is None
+        assert any("trọn câu" in n for n in notes)
+
     def test_string_bgm_survives_the_full_resource_audit(self):
         spec = {"events": [], "bgm": "bgm_energy_drive.mp3"}
         out, removed = audit_resources(spec, word_count=10)

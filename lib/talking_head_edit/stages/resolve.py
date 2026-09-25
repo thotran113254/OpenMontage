@@ -20,7 +20,9 @@ from lib.talking_head_edit.job_store import (
 from lib.talking_head_edit.resolve_broll import (
     resolve_broll, speaker_aware_enabled, speaker_segments,
 )
-from lib.talking_head_edit.resolve_events import TimeMapper, apply_guards, resolve_events
+from lib.talking_head_edit.resolve_events import (
+    TimeMapper, apply_guards, cold_open_window, resolve_events,
+)
 from lib.talking_head_edit.sharpen_calibrate import (
     SharpenCalibrationError, calibrate,
 )
@@ -39,6 +41,10 @@ ENDCARD_SECONDS = 3.6
 # The cut timeline before its master audio pass, kept only until the cold-open
 # decision is made (see `prepend_teaser`).
 PREMASTER_NAME = f"_timeline_premaster{SEGMENT_SUFFIX}"
+# What `cut_and_grade_multi` reads from a source probe: fps for the frame grid,
+# the rest for the `-c copy` fast-path decision. Persisted in `cut_plan` so the
+# deliverable encode takes the same decisions as the draft.
+PLAN_PROBE_KEYS = ("fps", "width", "height", "video_codec")
 
 # Framing presets for the fullscreen A-roll. Inset footage on a backdrop makes
 # an unflattering room read as a deliberate look instead of as the room. "dark"
@@ -337,23 +343,24 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
     job.emit("log", "resolve",
              f"Cắt {len(removes_report)} đoạn, giữ {len(spans)} span trên "
              f"{len(used_sources)} nguồn — đang encode…")
-    # Step 1 of splitting "decide the cut" from "encode the cut": `resolve`
-    # now always encodes at DRAFT quality (same tier as make_preview_proxy —
-    # deliberately reusing it, not a second set of magic numbers), because
-    # `spans`/`grades_used`/`cold_open_offset` below are what gets persisted
-    # to `resolve_report` and re-executed. `intermediate_preset`/`crf` are NOT
-    # read here anymore; they still mean "the deliverable's encode" and will
-    # apply once `render` re-runs this same decided plan at that quality
-    # (not yet wired — until then `final.mp4` is produced from this draft).
+    # "Decide the cut" is split from "encode the cut for delivery": resolve
+    # encodes at DRAFT quality (the make_preview_proxy tier — it runs on every
+    # preview and revise, and the browser Player needs a light file) and
+    # persists the whole decision as `cut_plan` in resolve_report. A full-size
+    # render re-executes that plan at `intermediate_preset`/`intermediate_crf`
+    # (`deliverable_src.py`), frame for frame, so final.mp4 never comes from
+    # this draft.
     preset = PREVIEW_PROXY_PRESET
     crf = PREVIEW_PROXY_CRF
     premaster = job.dir / PREMASTER_NAME
+    probes = {src_id: {key: source.get(key) for key in PLAN_PROBE_KEYS}
+              for src_id, source in sources.items()}
     new_duration, seams = cut_and_grade_multi(
         spans, job.src_path, grade_chains, tempo, fps,
         preset=preset, crf=crf,
         audio_preset=audio_preset,
         work_dir=job.dir,
-        probes={src_id: source for src_id, source in sources.items()},
+        probes=probes,
         target_size=out_size,
         on_log=lambda message: job.emit("log", "resolve", message),
         keep_joined=premaster,
@@ -362,24 +369,22 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
              f"{source_seconds:.1f}s → {new_duration:.1f}s (tempo {tempo}x)")
 
     # --- map events onto the post-cut timeline -----------------------------
-    mapper = TimeMapper(words, spans, new_duration, tempo)
+    mapper = TimeMapper(words, spans, new_duration, tempo, fps=fps)
     events, skipped = resolve_events(spec, mapper)
     events, guard_report = apply_guards(events)
 
     # --- cold-open teaser: prepend, then shift the whole programme ---------
     cold = spec.get("cold_open")
     offset = 0.0
+    teaser_window: list[float] | None = None
     if isinstance(cold, dict) and "w0" in cold and "w1" in cold and option_enabled(options, "cold_open"):
-        start = mapper.at(int(cold["w0"]))
-        last_word = max(0, min(len(words) - 1, int(cold["w1"])))
-        end_of_line = mapper.at(last_word, use_end=True)
-        next_word_at = mapper.at(last_word + 1) if last_word + 1 < len(words) else new_duration
-        # Keep a breath after the hook sentence — but never swallow the next word.
-        trailing = max(0.0, next_word_at - end_of_line - 0.02)
-        end = min(new_duration, end_of_line + min(0.22, max(0.06, trailing * 0.65)))
+        start, end = cold_open_window(
+            mapper, int(cold["w0"]), max(0, min(len(words) - 1, int(cold["w1"]))),
+            new_duration, fps)
 
         if end - start >= 1.0:
             before = probe_duration(premaster)
+            teaser_window = [start, end]
             total = prepend_teaser(premaster, start, end, fps, preset=preset, crf=crf)
             offset = round(total - before, 3)
             new_duration = apply_master_audio(premaster, job.src_path, audio_preset)
@@ -552,6 +557,21 @@ def run(job, options: dict[str, Any]) -> dict[str, Any]:
         "skipped_events": skipped,
         "guards": guard_report,
         "props_path": job.rel(job.props_path(version)),
+        # Everything `deliverable_src` needs to re-encode this exact timeline at
+        # delivery quality. Grade chains are stored as built, so measurements
+        # (auto_sharpen, auto_grade) are not re-taken and cannot differ.
+        "cut_plan": {
+            "spans": [{"src": span.src_id, "path": str(span.path),
+                       "start": span.start, "end": span.end} for span in spans],
+            "grade_chains": grade_chains,
+            "tempo": tempo,
+            "fps": fps,
+            "target_size": list(out_size),
+            "audio_preset": audio_preset,
+            "probes": {src_id: probes[src_id] for src_id in
+                       dict.fromkeys(span.src_id for span in spans)},
+            "teaser": teaser_window,
+        },
     }
     (job.dir / f"resolve_report_v{version}.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"

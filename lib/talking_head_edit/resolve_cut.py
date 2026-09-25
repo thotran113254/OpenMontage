@@ -38,7 +38,7 @@ from lib.talking_head_edit.resolve_media import (
     probe_duration,
     stream_durations,
 )
-from lib.talking_head_edit.resolve_spans import Span, merge_adjacent_spans
+from lib.talking_head_edit.resolve_spans import Span, merge_adjacent_spans, timeline_frames
 
 AV_TOLERANCE = 0.35  # max acceptable |video - audio| duration after cutting
 # Concurrency for per-span encodes. Deliberately low: over-parallelising has
@@ -105,11 +105,6 @@ def timeline_grid_filter(source_fps: float | None, fps: int, tempo: float,
     # A ratio, not a rounded decimal: 30/1.08 must stay exact over a long span.
     rate = f"{fps}" if abs(tempo - 1.0) < 1e-6 else f"{fps}/{tempo:g}"
     return f"fps=fps={rate}:start_time={start_time:.6f}"
-
-
-def timeline_frames(source_seconds: float, fps: int, tempo: float) -> int:
-    """Frames a stretch of source occupies on the timeline after tempo."""
-    return max(1, round(source_seconds / tempo * fps))
 
 
 def _video_filters(grade_chain: str, tempo: float, fps: int,
@@ -186,7 +181,7 @@ def extract_video_slice(span: Span, start: float, end: float, frames: int, out_p
     seek = start - lead_periods * period
     result = subprocess.run(
         ["ffmpeg", "-y", *ffmpeg_decode_threads(parallel_jobs),
-         "-ss", f"{seek:.6f}", "-to", f"{end:.6f}", "-i", str(span.path),
+         "-ss", f"{seek:.6f}", "-to", f"{_read_until(end, tempo, fps):.6f}", "-i", str(span.path),
          "-vf", _video_filters(grade_chain, tempo, fps, source_fps, lead_periods * period),
          "-an",
          "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
@@ -202,11 +197,35 @@ def extract_video_slice(span: Span, start: float, end: float, frames: int, out_p
     return out_path
 
 
-def extract_span_audio(span: Span, out_path: Path, tempo: float) -> Path:
+# Spans are read this many output frames past their end. `-frames:v` and
+# `atrim` cut both streams to the exact frame length, and the extra means
+# neither comes up short when that length rounded up. (Padding with `apad`
+# instead hangs ffmpeg 8 when a video stream shares the command.)
+_TAIL_MARGIN_FRAMES = 2
+
+
+def _read_until(end: float, tempo: float, fps: int) -> float:
+    return end + _TAIL_MARGIN_FRAMES * tempo / fps
+
+
+def span_audio_chain(span: Span, tempo: float, fps: int) -> str:
+    """Seam fades + tempo, then cut to the span's exact frame length.
+
+    The video is a whole number of frames; audio after atempo is not. The concat
+    demuxer starts the next piece after the longer of the two, so the timeline
+    crept by up to half a frame per cut and captions drifted off the words.
+    Past the fade-out the audio is silent, so the few samples read beyond the
+    span's end (see `_read_until`) are silence.
+    """
+    length = timeline_frames(span.duration, fps, tempo) / fps
+    return build_audio_span_chain(tempo, span.duration) + f",atrim=duration={length:.6f}"
+
+
+def extract_span_audio(span: Span, out_path: Path, tempo: float, fps: int = 30) -> Path:
     """The whole span's audio in one pass, so splitting the video adds no audio seam."""
     result = subprocess.run(
-        ["ffmpeg", "-y", "-ss", f"{span.start:.6f}", "-to", f"{span.end:.6f}",
-         "-i", str(span.path), "-vn", "-af", build_audio_span_chain(tempo, span.duration),
+        ["ffmpeg", "-y", "-ss", f"{span.start:.6f}", "-to", f"{_read_until(span.end, tempo, fps):.6f}",
+         "-i", str(span.path), "-vn", "-af", span_audio_chain(span, tempo, fps),
          "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2", str(out_path), "-loglevel", "error"],
         capture_output=True, text=True,
     )
@@ -262,13 +281,14 @@ def extract_span(span: Span, out_path: Path, grade_chain: str, tempo: float,
         # Fall through to a real encode: a copy that failed is not worth
         # diagnosing here, and the encode path always works.
 
-    audio_chain = build_audio_span_chain(tempo, span.duration)
+    audio_chain = span_audio_chain(span, tempo, fps)
 
     # `-frames:v` stops `-r` padding the tail: halving 60fps at the output made
     # a 2.000s span 62 frames (2.067s of video over 2.000s of audio).
     result = subprocess.run(
         ["ffmpeg", "-y", *ffmpeg_decode_threads(parallel_jobs),
-         "-ss", f"{span.start:.6f}", "-to", f"{span.end:.6f}", "-i", str(span.path),
+         "-ss", f"{span.start:.6f}", "-to", f"{_read_until(span.end, tempo, fps):.6f}",
+         "-i", str(span.path),
          "-vf", _video_filters(grade_chain, tempo, fps, source_fps), "-af", audio_chain,
          "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
          *ffmpeg_threads(parallel_jobs), *_SEGMENT_FORMAT, "-r", str(fps),
@@ -457,7 +477,7 @@ def cut_and_grade_multi(spans: list[Span], out_path: Path,
                     for part, (start, end, frames)
                     in enumerate(slice_bounds(span, count, fps, tempo))]
                 audio = pool.submit(extract_span_audio, span,
-                                    segments_dir / f"seg_{index:04d}_a.wav", tempo)
+                                    segments_dir / f"seg_{index:04d}_a.wav", tempo, fps)
                 planned.append((segment, slices, audio))
             # Ordered by index, not by completion: the timeline is the span order.
             for segment, video, audio in planned:
@@ -521,11 +541,12 @@ def prepend_teaser(timeline: Path, start: float, end: float, fps: int = 30,
     end = start + frames / fps
     fade_start = max(0.0, (end - start) - 0.02)
     try:
-        # 20ms fade-out only — 80ms used to dump a hole of silence onto the
+        # 20ms fades only — 80ms used to dump a hole of silence onto the
         # first phoneme of the main take (shotgun expander then crushed it).
+        # The fade-in lands in the lead-in breath `cold_open_window` keeps.
         subprocess.run(
             ["ffmpeg", "-y", "-ss", f"{start:.6f}", "-to", f"{end:.6f}", "-i", str(base),
-             "-af", f"afade=t=out:st={fade_start:.3f}:d=0.02",
+             "-af", f"afade=t=in:st=0:d=0.02,afade=t=out:st={fade_start:.3f}:d=0.02",
              "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
              *ffmpeg_threads(), *_SEGMENT_FORMAT, "-r", str(fps), "-frames:v", str(frames),
              str(teaser), "-loglevel", "error"],
@@ -546,9 +567,9 @@ def prepend_teaser(timeline: Path, start: float, end: float, fps: int = 30,
 # file is never staged into a render (stage_assets only ever reads src_path),
 # so re-encoding it a second time costs nothing the deliverable pays for.
 #
-# `src_path` is intermediate_crf (12 by default) — tens of Mbps, because that
-# quality is what the renderer reads frames from during the real render.
-# Streamed straight to a browser <video> tag it is a different problem: Chrome
+# The delivery-quality cut (`deliverable_src`, intermediate_crf 12) runs tens
+# of Mbps, because that is what the renderer reads frames from during the real
+# render. Streamed straight to a browser <video> tag it is a different problem: Chrome
 # falls behind a 50-70 Mbps 1080x1920 stream, `OffthreadVideo`'s
 # `pauseWhenBuffering` default keeps pausing to rebuffer, and audio — tied to
 # that same paused state — drops out with it. Measured on this pipeline's own

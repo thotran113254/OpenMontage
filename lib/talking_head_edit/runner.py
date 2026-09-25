@@ -145,7 +145,6 @@ def cache_signature(stage: str, job: Job, options: dict[str, Any]) -> tuple[str,
             "auto_grade": options.get("auto_grade"),
             "auto_sharpen": options.get("auto_sharpen"),
             "grade_recipe": _file_hash(Path(__file__).with_name("resolve_media.py")),
-            "encode": [options.get("intermediate_preset"), options.get("intermediate_crf")],
             "audio_preset": [options.get("audio_preset"), options.get("auto_audio_preset")],
         }), [job.src_path, job.props_path(version)]
 
@@ -155,6 +154,8 @@ def cache_signature(stage: str, job: Job, options: dict[str, Any]) -> tuple[str,
             "composition": _file_hash(render.COMPOSER_DIR / "src/mona/MonaTimeline.tsx"),
             "scale": options.get("render_scale", 1.0),
             "crf": options.get("render_crf"),
+            # a full render re-encodes resolve's plan at this quality first
+            "encode": [options.get("intermediate_preset"), options.get("intermediate_crf")],
         }), [job.final_path]
 
     # probe, verify and revise never cache: the first two are cheap and must

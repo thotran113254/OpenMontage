@@ -14,6 +14,8 @@ from __future__ import annotations
 from pathlib import Path
 
 
+import pytest
+
 from lib.talking_head_edit.stages import render
 
 
@@ -31,6 +33,8 @@ def _pre_refactor_build_command(out_path, props_path, staging, workers, crf,
         f"--props={props_path}", f"--public-dir={staging}",
         f"--concurrency={workers}", f"--crf={crf}",
         f"--jpeg-quality={jpeg_quality}", "--log=info",
+        # added later: bounded frame cache, see render.OFFTHREAD_CACHE_BYTES
+        f"--offthreadvideo-cache-size-in-bytes={render.OFFTHREAD_CACHE_BYTES}",
     ]
     if scale < 1.0:
         command.append(f"--scale={scale}")
@@ -81,7 +85,11 @@ class TestBuildRemotionCommandParity:
             return 0, ""
 
         monkeypatch.setattr(render, "_run_remotion", fake_run_remotion)
-        monkeypatch.setattr(render, "stage_assets", lambda job, props: tmp_path / "render_public")
+        monkeypatch.setattr(render, "stage_assets",
+                            lambda job, props, video=None: tmp_path / "render_public")
+        monkeypatch.setattr(render, "deliverable_video", lambda job, version, options: None)
+        # free RAM moves between the two _concurrency() calls; pin it
+        monkeypatch.setattr(render, "_memory_worker_cap", lambda: None)
         (tmp_path / "render_public").mkdir(exist_ok=True)
         monkeypatch.setattr(render, "COMPOSER_DIR", tmp_path)
         (tmp_path / "node_modules").mkdir(exist_ok=True)
@@ -143,6 +151,11 @@ class TestParseProgressLine:
 # ---------------------------------------------------------------------------
 
 class TestConcurrencyParameterization:
+    @pytest.fixture(autouse=True)
+    def _plenty_of_memory(self, monkeypatch):
+        """These pin the CPU rules; the memory rule has its own tests below."""
+        monkeypatch.setattr(render, "_memory_worker_cap", lambda: None)
+
     def test_default_max_concurrency_matches_local_cap(self, monkeypatch):
         monkeypatch.setattr(render, "available_cores", lambda: 32)
         monkeypatch.setattr(render, "cpu_budget", lambda: 19)
@@ -184,3 +197,35 @@ class TestConcurrencyParameterization:
         monkeypatch.setattr(render, "cpu_budget", lambda: 19)
         monkeypatch.setenv("OPENMONTAGE_RENDER_MAX_CONCURRENCY", "16")
         assert render._concurrency({}) == 16
+
+
+class TestMemoryAwareConcurrency:
+    def _cpu_allows(self, monkeypatch, workers: int) -> None:
+        monkeypatch.setattr(render, "available_cores", lambda: 10)
+        monkeypatch.setattr(render, "cpu_budget", lambda: workers)
+
+    def test_low_free_memory_lowers_the_local_worker_count(self, monkeypatch):
+        """~7 GB free let 5 workers start and every one of them time out."""
+        self._cpu_allows(monkeypatch, 6)
+        monkeypatch.setattr(render, "_available_memory_mb", lambda: 7000)
+        assert render._concurrency({}) == 2
+
+    def test_plenty_of_memory_leaves_the_cpu_budget_in_charge(self, monkeypatch):
+        self._cpu_allows(monkeypatch, 6)
+        monkeypatch.setattr(render, "_available_memory_mb", lambda: 30000)
+        assert render._concurrency({}) == 6
+
+    def test_almost_no_memory_still_renders_with_one_worker(self, monkeypatch):
+        self._cpu_allows(monkeypatch, 6)
+        monkeypatch.setattr(render, "_available_memory_mb", lambda: 800)
+        assert render._concurrency({}) == 1
+
+    def test_unreadable_memory_changes_nothing(self, monkeypatch):
+        self._cpu_allows(monkeypatch, 6)
+        monkeypatch.setattr(render, "_available_memory_mb", lambda: None)
+        assert render._concurrency({}) == 6
+
+    def test_a_rented_box_is_not_held_to_this_machines_memory(self, monkeypatch):
+        monkeypatch.setattr(render, "_available_memory_mb", lambda: 800)
+        monkeypatch.setattr(render.os, "cpu_count", lambda: 64)
+        assert render._concurrency({}, max_concurrency=32) == 32

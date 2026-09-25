@@ -73,6 +73,16 @@ def kept_spans(removes: list[tuple[float, float]], duration: float) -> list[tupl
     return kept or [(0.0, duration)]
 
 
+def timeline_frames(source_seconds: float, fps: int, tempo: float) -> int:
+    """Frames a stretch of source occupies on the timeline after tempo.
+
+    Every encoded span is exactly this many frames long, video AND audio, so
+    the timeline is a sum of whole frames and `TimeMapper` can add up the same
+    numbers instead of drifting by a fraction of a frame per cut.
+    """
+    return max(1, round(source_seconds / tempo * fps))
+
+
 @dataclass(frozen=True)
 class Span:
     """One kept piece of one source, in that source's own time base."""

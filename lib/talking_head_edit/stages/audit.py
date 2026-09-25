@@ -35,6 +35,11 @@ EVENT_TYPES = {"caption", "keyword", "card", "punch_in", "sfx", "shake", "flash"
 WORD_INDEX_FIELDS = ("w0", "w1", "atWord")
 
 _SENTENCE_END = ".!?…\"'"
+# A breath this long is where a speaker ends a thought, punctuated or not —
+# ASR punctuation is often missing on run-on speech.
+_THOUGHT_PAUSE = 0.35
+_HOOK_EXTEND_WORDS = 8     # how far past the director's w1 to look for the end
+_HOOK_BACKTRACK_WORDS = 6  # how far before its w0 to look for the start
 
 
 def _word_ends_sentence(text: str) -> bool:
@@ -42,11 +47,31 @@ def _word_ends_sentence(text: str) -> bool:
     return bool(stripped) and stripped[-1] in _SENTENCE_END
 
 
+def _pause_after(words: list[dict[str, Any]], index: int) -> float | None:
+    try:
+        return float(words[index + 1]["start"]) - float(words[index]["end"])
+    except (IndexError, KeyError, TypeError, ValueError):
+        return None
+
+
+def _ends_thought(words: list[dict[str, Any]], index: int) -> bool:
+    if index >= len(words) - 1 or _word_ends_sentence(str(words[index].get("word", ""))):
+        return True
+    pause = _pause_after(words, index)
+    return pause is not None and pause >= _THOUGHT_PAUSE
+
+
 def normalize_cold_open(
     cold: dict[str, Any] | None,
     words: list[dict[str, Any]],
 ) -> tuple[dict[str, Any] | None, list[str]]:
-    """Snap hook span to whole-sentence boundaries; drop choppy teasers."""
+    """Snap the hook to where a thought starts and ends; drop it if there is none.
+
+    A boundary is sentence punctuation or a pause of `_THOUGHT_PAUSE`. The
+    search used to stop after a fixed number of words and keep that word even
+    when it was mid-sentence — a teaser that stops half-way through a phrase is
+    worse than no teaser, so now no boundary means no hook.
+    """
     if not isinstance(cold, dict) or "w0" not in cold or "w1" not in cold:
         return cold if isinstance(cold, dict) else None, []
 
@@ -58,20 +83,15 @@ def normalize_cold_open(
         return None, ["cold_open w0>w1 — bỏ hook"]
 
     orig = (w0, w1)
-    for _ in range(8):
-        if _word_ends_sentence(str(words[w1].get("word", ""))):
-            break
-        if w1 >= count - 1:
-            break
-        w1 += 1
-
-    for _ in range(6):
-        if w0 == 0:
-            break
-        prev = str(words[w0 - 1].get("word", ""))
-        if _word_ends_sentence(prev):
-            break
-        w0 -= 1
+    end = next((i for i in range(w1, min(count, w1 + _HOOK_EXTEND_WORDS + 1))
+                if _ends_thought(words, i)), None)
+    start = next((i for i in range(w0, max(-1, w0 - _HOOK_BACKTRACK_WORDS - 1), -1)
+                  if i == 0 or _ends_thought(words, i - 1)), None)
+    if end is None or start is None:
+        side = "kết thúc" if end is None else "bắt đầu"
+        return None, [f"cold_open không tìm được điểm {side} trọn câu gần w{orig[0]}-{orig[1]} "
+                      "— bỏ hook thay vì cắt giữa câu"]
+    w0, w1 = start, end
 
     span = w1 - w0 + 1
     if span < 4:
